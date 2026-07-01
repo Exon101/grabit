@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GrabIt — Universal Media Grabber for Chrome</title>
+  <meta name="description" content="Privacy-respecting Chrome extension to download videos, images, and audio from YouTube, Twitter/X, Instagram, TikTok, Reddit, Facebook, Twitch, and Bilibili." />
+  <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/Exon101/grabit-extension/main/icons/icon128.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <!-- Decorative background -->
+  <div class="bg-decoration" aria-hidden="true">
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="bg-blob blob-3"></div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-brand">
+        <div class="brand-mark">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/>
+          </svg>
+        </div>
+        <span>GrabIt</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#sites">Sites</a>
+        <a href="#install">Install</a>
+        <a href="#how">How it works</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <div class="nav-actions">
+        <a href="https://github.com/Exon101/grabit-extension" target="_blank" rel="noreferrer" class="nav-link-icon" title="GitHub">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.88-1.54-3.88-1.54-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.04 1.78 2.72 1.27 3.39.97.1-.75.41-1.27.74-1.56-2.55-.29-5.23-1.28-5.23-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.06 11.06 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.69 5.39-5.25 5.68.42.36.79 1.08.79 2.18v3.23c0 .31.21.68.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+        </a>
+        <a href="https://github.com/Exon101/grabit-extension/releases/latest" target="_blank" rel="noreferrer" class="btn-nav-primary">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>
+          Download
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="hero-badge">
+        <span class="dot"></span>
+        v1.1.0 · Now with on-demand permissions
+      </div>
+      <h1>
+        Grab videos from <span class="grad">anywhere</span>.
+        <br />No accounts. No servers. Just downloads.
+      </h1>
+      <p class="hero-sub">
+        GrabIt is a privacy-respecting Chrome extension that detects and downloads videos,
+        images, and audio from 8 major sites — all processing happens locally in your browser.
+        No upfront permissions. Grant access per-site, on first use.
+      </p>
+      <div class="hero-cta">
+        <a href="https://github.com/Exon101/grabit-extension/releases/latest" target="_blank" rel="noreferrer" class="btn-primary btn-lg" id="download-btn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>
+          <span>Download latest</span>
+          <span class="btn-meta" id="download-size">~85 KB · .zip</span>
+        </a>
+        <a href="#install" class="btn-secondary btn-lg">
+          Install guide
+        </a>
+      </div>
+      <div class="hero-stats" id="hero-stats">
+        <div class="stat">
+          <span class="stat-num">8</span>
+          <span class="stat-label">Sites</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">3-tier</span>
+          <span class="stat-label">Fallback</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">0</span>
+          <span class="stat-label">Trackers</span>
+        </div>
+        <div class="stat">
+          <span class="stat-num">MIT</span>
+          <span class="stat-label">License</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-visual" aria-hidden="true">
+      <div class="browser-frame">
+        <div class="browser-bar">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+          <div class="browser-url">youtube.com/watch?v=…</div>
+        </div>
+        <div class="browser-body">
+          <div class="fake-video"></div>
+          <div class="overlay-demo">
+            <span class="overlay-btn">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>
+              GrabIt
+              <span class="overlay-count">3</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Features -->
+  <section id="features" class="section">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="section-eyebrow">Features</span>
+        <h2>Everything you need.<br />Nothing you don't.</h2>
+        <p>Modern UI, robust download fallback, zero privacy compromises.</p>
+      </div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>On-demand permissions</h3>
+          <p>No upfront host permissions. GrabIt asks for access only when you first use it on a new site. Revoke anytime in Settings → Sites.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </div>
+          <h3>3-tier download fallback</h3>
+          <p>Direct download → fetch+blob (bypasses referer via DNR) → open in tab. Whatever the CDN throws at us, we handle it.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+          </div>
+          <h3>8 supported sites</h3>
+          <p>YouTube, Twitter/X, Instagram, TikTok, Reddit, Facebook, Twitch, and Bilibili. Adding more is just a new extractor file.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+          </div>
+          <h3>Floating hover overlay</h3>
+          <p>A discreet button appears on supported pages with a popover showing all quality variants. Shadow-DOM isolated from site styles.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          </div>
+          <h3>Dark mode & accent colors</h3>
+          <p>Auto / Light / Dark themes with system-preference detection. 8 accent colors to choose from. Synced across your Chrome instances.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+          </div>
+          <h3>Tunable to the last pixel</h3>
+          <p>Filename templates, default quality, download folder, overlay position/opacity, per-site enable/disable, notifications — all configurable.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sites -->
+  <section id="sites" class="section section-alt">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="section-eyebrow">Supported sites</span>
+        <h2>Eight sites. One extension.</h2>
+        <p>Toggle each site independently. Permission is requested only when you actually visit it.</p>
+      </div>
+      <div class="sites-grid" id="sites-grid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Install -->
+  <section id="install" class="section">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="section-eyebrow">Installation</span>
+        <h2>Up and running in 60 seconds.</h2>
+        <p>GrabIt isn't on the Chrome Web Store yet — install it from source. It's a 30-second process.</p>
+      </div>
+      <div class="install-steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h3>Download the latest release</h3>
+            <p>Grab <code>grabit-extension.zip</code> from the latest GitHub release:</p>
+            <a href="https://github.com/Exon101/grabit-extension/releases/latest" target="_blank" rel="noreferrer" class="btn-primary">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>
+              Get the zip
+            </a>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h3>Unzip it somewhere permanent</h3>
+            <p>Extract the zip to a folder you won't delete (e.g. <code>~/Documents/grabit-extension</code>). Chrome needs the folder to stay in place while the extension is installed.</p>
+            <pre><code>unzip grabit-extension.zip -d ~/Documents/grabit-extension</code></pre>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h3>Open Chrome's extensions page</h3>
+            <p>Paste this in your address bar:</p>
+            <pre><code>chrome://extensions/</code></pre>
+            <p>Then toggle <strong>Developer mode</strong> on (top-right corner).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <h3>Load the extension</h3>
+            <p>Click <strong>Load unpacked</strong> and select the folder you extracted to. The GrabIt icon appears in your toolbar — pin it for easy access.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <h3>Visit a supported site</h3>
+            <p>Open a YouTube video, Twitter tweet, or any supported page. Click the GrabIt toolbar icon — you'll be asked to grant host permission for that site (one-time). After granting, the popup shows detected media with quality variants.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section id="how" class="section section-alt">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="section-eyebrow">How it works</span>
+        <h2>Three layers of fallback.</h2>
+        <p>Many CDNs reject direct downloads without the right Referer header. GrabIt tries three strategies in order.</p>
+      </div>
+      <div class="how-flow">
+        <div class="how-tier">
+          <div class="tier-badge">Tier 1</div>
+          <h3>Direct download</h3>
+          <p><code>chrome.downloads.download()</code> with the URL as-is. Fastest path. Works for any URL that doesn't enforce Referer.</p>
+        </div>
+        <div class="how-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+        <div class="how-tier">
+          <div class="tier-badge">Tier 2</div>
+          <h3>Fetch + Blob</h3>
+          <p>Service-worker <code>fetch()</code> with cookies, then convert to a Blob URL and pass to <code>chrome.downloads</code>. DNR rules inject Referer/Origin on the network layer.</p>
+        </div>
+        <div class="how-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+        <div class="how-tier">
+          <div class="tier-badge">Tier 3</div>
+          <h3>Open in tab</h3>
+          <p>Last resort: open the URL in a background tab. Chrome will either render the media inline or trigger its own download. We mark it in the recent list as "opened-in-tab".</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Privacy -->
+  <section id="privacy" class="section">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="section-eyebrow">Privacy</span>
+        <h2>Your data stays on your device.</h2>
+        <p>GrabIt doesn't have a server. It can't see your data.</p>
+      </div>
+      <div class="privacy-grid">
+        <div class="privacy-item">
+          <div class="check">✓</div>
+          <div>
+            <h3>No telemetry</h3>
+            <p>Zero analytics, zero error reporting, zero third-party requests. The only network calls go directly to the sites you're already browsing.</p>
+          </div>
+        </div>
+        <div class="privacy-item">
+          <div class="check">✓</div>
+          <div>
+            <h3>No third-party servers</h3>
+            <p>Extractors fetch HTML/JSON directly from the site you're on. No proxy, no API gateway, no shared backend.</p>
+          </div>
+        </div>
+        <div class="privacy-item">
+          <div class="check">✓</div>
+          <div>
+            <h3>Cookies never read</h3>
+            <p>Your session cookies are sent with extraction requests so logged-in-only content works — but cookies are never inspected, stored, or transmitted elsewhere.</p>
+          </div>
+        </div>
+        <div class="privacy-item">
+          <div class="check">✓</div>
+          <div>
+            <h3>Settings sync via Google</h3>
+            <p>Your preferences sync across signed-in Chrome instances via <code>chrome.storage.sync</code> — encrypted, tied to your Google account, never visible to us.</p>
+          </div>
+        </div>
+        <div class="privacy-item">
+          <div class="check">✓</div>
+          <div>
+            <h3>Recent downloads are local</h3>
+            <p>The list of recent downloads lives in <code>chrome.storage.local</code> and never leaves your device. Clear it anytime from the popup or options page.</p>
+          </div>
+        </div>
+        <div class="privacy-item">
+          <div class="check">✓</div>
+          <div>
+            <h3>Open source</h3>
+            <p>Every line of code is on <a href="https://github.com/Exon101/grabit-extension" target="_blank" rel="noreferrer">GitHub</a>. Audit it, fork it, build it yourself.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq" class="section section-alt">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="section-eyebrow">FAQ</span>
+        <h2>Common questions.</h2>
+      </div>
+      <div class="faq-list">
+        <details class="faq-item" open>
+          <summary>Why does Chrome ask for permission the first time I use GrabIt on a site?</summary>
+          <p>GrabIt uses <strong>optional host permissions</strong> — instead of requesting access to all 8 supported sites upfront at install time, it asks only when you first try to use it on a specific site. This keeps your privacy surface minimal: if you never use GrabIt on Facebook, it never has any access to facebook.com. You can revoke a site's permission anytime in <strong>Settings → Sites</strong>.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Why can't I download some YouTube videos?</summary>
+          <p>YouTube serves many videos with "ciphered" URLs that need JavaScript on the page itself to decode. GrabIt includes a bridge script that resolves many of these, but YouTube changes their decoder frequently. Age-restricted, member-only, and DRM-protected videos also return errors. For those cases, GrabIt shows a friendly message in the popup.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Why are Bilibili video and audio separate?</summary>
+          <p>Bilibili serves media as DASH, with video and audio as separate streams. GrabIt exposes them as separate variants (audio-only and video-only). Downloading the video-only variant yields a silent file. Muxing them into a single MP4 requires ffmpeg.wasm — planned for v1.2.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Does GrabIt work on Firefox, Edge, or Brave?</summary>
+          <p>GrabIt is built for Chrome (Manifest V3). It should also work on Edge, Brave, and other Chromium browsers with minimal changes. Firefox supports MV3 but with some API differences — porting would require a small amount of work.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Why isn't it on the Chrome Web Store?</summary>
+          <p>The Web Store review process for downloaders is slow and frequently rejects extensions that touch YouTube or Facebook. For now, install from source (see the Install section above). A Web Store listing is planned for after v1.2 stabilizes the YouTube extractor.</p>
+        </details>
+        <details class="faq-item">
+          <summary>How do I report a bug or request a feature?</summary>
+          <p>Open an issue on <a href="https://github.com/Exon101/grabit-extension/issues" target="_blank" rel="noreferrer">GitHub Issues</a>. Please include the site URL, the version (visible in Settings → About), and any error from the service worker DevTools console (<code>chrome://extensions/</code> → GrabIt → "Inspect views: service worker").</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta">
+    <div class="cta-inner">
+      <h2>Ready to grab?</h2>
+      <p>Download the latest build. Replace it anytime — every commit publishes a new zip automatically.</p>
+      <a href="https://github.com/Exon101/grabit-extension/releases/latest" target="_blank" rel="noreferrer" class="btn-primary btn-lg">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>
+        Download GrabIt
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <div class="brand-mark">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/>
+          </svg>
+        </div>
+        <span>GrabIt</span>
+      </div>
+      <div class="footer-links">
+        <a href="https://github.com/Exon101/grabit-extension" target="_blank" rel="noreferrer">GitHub</a>
+        <a href="https://github.com/Exon101/grabit-extension/releases" target="_blank" rel="noreferrer">Releases</a>
+        <a href="https://github.com/Exon101/grabit-extension/issues" target="_blank" rel="noreferrer">Issues</a>
+        <a href="https://github.com/Exon101/grabit-extension/blob/main/README.md" target="_blank" rel="noreferrer">README</a>
+        <a href="https://github.com/Exon101/grabit-extension/blob/main/AGENT_MEMORY.md" target="_blank" rel="noreferrer">Agent memory</a>
+      </div>
+      <div class="footer-meta">
+        <span>MIT License · Built by Exon101</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

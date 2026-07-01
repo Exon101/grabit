@@ -4,10 +4,19 @@
   <img src="icons/icon128.png" width="96" height="96" alt="GrabIt logo" />
 </p>
 
+<p align="center">
+  <a href="https://exon101.github.io/grabit-extension/">🌐 Landing page</a> ·
+  <a href="https://github.com/Exon101/grabit-extension/releases/latest">📦 Download latest</a> ·
+  <a href="https://github.com/Exon101/grabit-extension/issues">🐛 Report issue</a>
+</p>
+
 A privacy-respecting Chrome extension that lets you download videos, images, and audio
 from **YouTube, Twitter/X, Instagram, TikTok, Reddit, Facebook, Twitch, and Bilibili** —
 with a polished popup UI, a floating hover overlay, per-site toggles, dark mode,
 settings sync, and a 3-tier download fallback that handles restrictive CDNs.
+
+**No upfront host permissions** — GrabIt asks for access only when you first use it
+on a new site. Revoke anytime in Settings → Sites.
 
 All extraction and downloading happen **locally in your browser**. No third-party
 servers, no telemetry, no account required (beyond being signed into each site as
@@ -173,15 +182,14 @@ User clicks toolbar icon
 
 ### From source (developer install)
 
-1. Clone this repo:
-   ```bash
-   git clone https://github.com/Exon101/grabit-extension.git
-   cd grabit-extension
-   ```
-2. Open Chrome and navigate to `chrome://extensions/`
-3. Enable **Developer mode** (top-right toggle)
-4. Click **Load unpacked** and select the `grabit-extension/` folder
-5. The GrabIt icon will appear in your toolbar — pin it for easy access
+1. Download the latest `grabit-extension.zip` from [releases](../../releases/latest) (or clone this repo)
+2. Unzip it to a permanent folder (Chrome needs it to stay in place)
+3. Open Chrome and navigate to `chrome://extensions/`
+4. Enable **Developer mode** (top-right toggle)
+5. Click **Load unpacked** and select the unzipped `grabit-extension/` folder
+6. The GrabIt icon will appear in your toolbar — pin it for easy access
+7. Visit a supported site (e.g. a YouTube video) and click the GrabIt icon
+8. **First time only:** the popup will ask you to grant host permission for that site (no upfront permissions are requested at install time). Click "Enable for this site" — Chrome shows its standard permission prompt. Grant it and the popup will re-scan automatically.
 
 ### Regenerating icons (optional)
 
@@ -243,24 +251,23 @@ Settings sync across your signed-in Chrome instances via `chrome.storage.sync`.
 
 ## Permissions explained
 
-| Permission | Why |
-|------------|-----|
-| `activeTab` | Read the current tab's URL to dispatch to the right extractor |
-| `scripting` | Inject the YouTube signature bridge into the MAIN world |
-| `storage` | Persist settings (sync) and recent downloads (local) |
-| `tabs` | Read tab metadata (title, favicon) for the popup |
-| `contextMenus` | Add the right-click "GrabIt" entry on supported sites |
-| `notifications` | Desktop notifications on download completion / error |
-| `declarativeNetRequest` | Inject Referer/Origin headers for CDNs that require them |
-| `declarativeNetRequestFeedback` | (Reserved) observe DNR rule matches for debugging |
+GrabIt uses **optional host permissions** — no site access is granted at install time. When you first click the GrabIt icon on a supported site, the popup asks you to grant host permission for that specific site (e.g. `https://*.youtube.com/*`). You can revoke any granted permission at any time in **Settings → Sites**.
 
-**Host permissions** are scoped to the 10 supported sites plus a few common video CDNs.
-We deliberately do **not** request `<all_urls>`.
+| Permission | Type | Why |
+|------------|------|-----|
+| `activeTab` | required | Read the current tab's URL to dispatch to the right extractor |
+| `scripting` | required | Inject the YouTube signature bridge into the MAIN world |
+| `storage` | required | Persist settings (sync) and recent downloads (local) |
+| `tabs` | required | Read tab metadata (title, favicon) for the popup |
+| `contextMenus` | required | Add the right-click "GrabIt" entry on supported sites |
+| `notifications` | required | Desktop notifications on download completion / error |
+| `declarativeNetRequest` | required | Inject Referer/Origin headers for CDNs that require them |
+| `declarativeNetRequestFeedback` | required | (Reserved) observe DNR rule matches for debugging |
+| `host_permissions` for each supported site | **optional** | Requested on first use per-site via `chrome.permissions.request()` |
 
-We do **not** request the `downloads` permission for arbitrary URLs — we use
-`chrome.downloads.download()` with our own extracted URLs, which doesn't require
-the broad `downloads` permission in MV3. (Some references suggest otherwise; see
-`AGENT_MEMORY.md` for the bug history.)
+**Why optional?** If you never use GrabIt on Facebook, it never has any access to facebook.com. This minimizes the privacy surface and avoids the upfront "this extension wants to read all your data on 10 sites" warning that often scares users away.
+
+We deliberately do **not** request `<all_urls>` or `downloads` (the latter isn't needed in MV3 — see `AGENT_MEMORY.md` for the bug history).
 
 ---
 

@@ -304,6 +304,46 @@ html, body {
   color: var(--fg-muted);
 }
 
+/* ---------- Permission state ---------- */
+.permission {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 22px;
+  text-align: center;
+  color: var(--fg-muted);
+}
+.perm-icon {
+  color: var(--accent);
+  margin-bottom: 14px;
+  width: 64px; height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-soft);
+  border-radius: 50%;
+}
+.permission h3 { font-size: 15px; font-weight: 700; color: var(--fg); margin-bottom: 8px; }
+.permission p { font-size: 12px; line-height: 1.6; max-width: 260px; margin-bottom: 16px; }
+.permission .btn-primary {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: var(--accent-fg);
+  border: 0;
+  border-radius: 10px;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: 0 4px 12px -2px rgba(99,102,241,0.4);
+  transition: all 0.15s ease;
+}
+.permission .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -2px rgba(99,102,241,0.5); }
+.permission .btn-primary:active { transform: translateY(0); }
+.perm-note { font-size: 11px; color: var(--fg-subtle); margin-top: 12px; }
+.perm-note a { color: var(--accent); text-decoration: none; }
+.perm-note a:hover { text-decoration: underline; }
+
 /* ---------- Recent ---------- */
 .recent {
   border-top: 1px solid var(--border);

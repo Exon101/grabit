@@ -417,6 +417,22 @@ body {
 .site-info { display: flex; flex-direction: column; gap: 2px; }
 .site-name { font-size: 13px; font-weight: 600; }
 .site-host { font-size: 10px; color: var(--fg-muted); font-family: var(--font-mono); }
+.perm-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  vertical-align: middle;
+}
+.perm-enable-btn {
+  flex-shrink: 0;
+}
 
 /* ---------- About ---------- */
 .about-card { text-align: left; }

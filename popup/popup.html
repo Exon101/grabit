@@ -59,6 +59,23 @@
       <div class="supported-sites" id="supported-sites"></div>
     </section>
 
+    <!-- Permission needed state -->
+    <section class="permission" id="permission-state" hidden>
+      <div class="perm-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </div>
+      <h3>Enable GrabIt for this site</h3>
+      <p>GrabIt needs permission to read and download media from <strong id="perm-host">this site</strong>. No permission is requested upfront — you grant it on first use, per site.</p>
+      <button class="btn-primary" id="grant-permission-btn">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg>
+        Enable for this site
+      </button>
+      <p class="perm-note">You can revoke this anytime in <a href="#" id="open-options-from-perm">Settings → Sites</a>.</p>
+    </section>
+
     <!-- Recent downloads -->
     <section class="recent" id="recent-section" hidden>
       <div class="section-head">

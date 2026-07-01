@@ -82,6 +82,7 @@
       $('#loading-skeleton').hidden = false;
       $('#media-list').hidden = true;
       $('#empty-state').hidden = true;
+      $('#permission-state').hidden = true;
       $('#brand-status').textContent = 'Detecting media…';
 
       const result = await send('scanActiveTab');
@@ -89,6 +90,13 @@
       const media = result?.media || [];
 
       $('#loading-skeleton').hidden = true;
+
+      // Handle permission-required state
+      if (result?.status === 'needs_permission') {
+        showPermissionState(result.siteKey, result.tab?.url);
+        $('#brand-status').textContent = 'Permission needed';
+        return;
+      }
 
       if (!media.length) {
         showEmpty();
@@ -106,6 +114,62 @@
       $('#brand-status').textContent = 'Scan failed';
       showToast(e.message, 'error');
     }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Permission state
+   * ---------------------------------------------------------------- */
+  function showPermissionState(siteKey, url) {
+    $('#permission-state').hidden = false;
+    let host = 'this site';
+    try { host = new URL(url).hostname; } catch { /* ignore */ }
+    $('#perm-host').textContent = host;
+
+    // Wire up the grant button — MUST use chrome.permissions.request from
+    // the popup's user-gesture context (can't go through background)
+    const btn = $('#grant-permission-btn');
+    btn.onclick = async () => {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="v-spinner"></span> Requesting…';
+      try {
+        // Patterns come from the scan response, or we re-derive from siteKey
+        const patterns = scanResult?.patterns?.length
+          ? scanResult.patterns
+          : await derivePatterns(siteKey);
+        const granted = await new Promise((resolve) => {
+          chrome.permissions.request({ origins: patterns }, (ok) => {
+            resolve(!!ok);
+          });
+        });
+        if (granted) {
+          showToast('Permission granted — scanning…', 'success');
+          // Re-scan after granting
+          setTimeout(scanAndRender, 200);
+        } else {
+          btn.disabled = false;
+          btn.innerHTML = 'Enable for this site';
+          showToast('Permission denied', 'error');
+        }
+      } catch (e) {
+        btn.disabled = false;
+        btn.innerHTML = 'Enable for this site';
+        showToast('Failed: ' + e.message, 'error');
+      }
+    };
+
+    $('#open-options-from-perm').onclick = (e) => {
+      e.preventDefault();
+      chrome.runtime.openOptionsPage();
+    };
+  }
+
+  async function derivePatterns(siteKey) {
+    if (!siteKey) return [];
+    // Ask background for patterns (re-uses SITE_HOST_PATTERNS constant)
+    const extractors = await send('listExtractors');
+    const ext = extractors.find(e => e.id === siteKey);
+    if (!ext?.domains?.length) return [];
+    return ext.domains.map(d => `https://*.${d}/*`);
   }
 
   function showEmpty() {

@@ -124,21 +124,78 @@
     container.innerHTML = '';
     for (const ext of extractors) {
       const enabled = settings.sites?.[ext.id] !== false;
+      const patterns = (ext.domains || []).map(d => `https://*.${d}/*`);
+
+      // Check if host permission is granted for this site
+      let permGranted = false;
+      try {
+        permGranted = await new Promise((resolve) => {
+          chrome.permissions.contains({ origins: patterns }, resolve);
+        });
+      } catch { /* ignore */ }
+
       const card = document.createElement('label');
       card.className = 'site-toggle';
       card.innerHTML = `
         <div class="site-info">
-          <span class="site-name">${ext.name}</span>
+          <span class="site-name">${ext.name} ${permGranted ? '' : '<span class="perm-badge">needs permission</span>'}</span>
           <span class="site-host">${ext.domains?.[0] || ext.id}</span>
         </div>
-        <input type="checkbox" class="toggle" data-site="${ext.id}" ${enabled ? 'checked' : ''} />
+        <input type="checkbox" class="toggle" data-site="${ext.id}" ${enabled && permGranted ? 'checked' : ''} ${!permGranted ? 'disabled' : ''} />
       `;
       container.appendChild(card);
       const cb = card.querySelector('input');
-      cb.addEventListener('change', async () => {
-        settings.sites = { ...settings.sites, [ext.id]: cb.checked };
-        await persist({ sites: settings.sites });
-      });
+
+      if (permGranted) {
+        cb.addEventListener('change', async () => {
+          settings.sites = { ...settings.sites, [ext.id]: cb.checked };
+          await persist({ sites: settings.sites });
+          // If user unchecks AND wants to fully revoke, offer to remove permission
+          if (!cb.checked) {
+            try {
+              await new Promise((resolve) => {
+                chrome.permissions.remove({ origins: patterns }, resolve);
+              });
+              showToast(`Removed host permission for ${ext.name}`, 'success');
+            } catch (e) {
+              showToast('Could not remove permission: ' + e.message, 'error');
+            }
+            // Re-render to reflect the new state
+            await renderSiteToggles();
+          }
+        });
+      } else {
+        // Replace the disabled checkbox with an "Enable" button
+        const enableBtn = document.createElement('button');
+        enableBtn.className = 'btn-secondary perm-enable-btn';
+        enableBtn.textContent = 'Enable';
+        enableBtn.style.padding = '5px 12px';
+        enableBtn.style.fontSize = '11px';
+        cb.replaceWith(enableBtn);
+        enableBtn.addEventListener('click', async () => {
+          enableBtn.disabled = true;
+          enableBtn.textContent = 'Requesting…';
+          try {
+            const granted = await new Promise((resolve) => {
+              chrome.permissions.request({ origins: patterns }, resolve);
+            });
+            if (granted) {
+              settings.sites = { ...settings.sites, [ext.id]: true };
+              await persist({ sites: settings.sites });
+              showToast(`${ext.name} enabled`, 'success');
+              await renderSiteToggles();
+            } else {
+              enableBtn.disabled = false;
+              enableBtn.textContent = 'Enable';
+              showToast('Permission denied', 'error');
+            }
+          } catch (e) {
+            enableBtn.disabled = false;
+            enableBtn.textContent = 'Enable';
+            showToast('Failed: ' + e.message, 'error');
+          }
+        });
+      }
     }
   }
 

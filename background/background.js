@@ -16,7 +16,7 @@
  * structured messages { ok: true, data } | { ok: false, error }.
  */
 
-import { logger, getSettings, saveSettings, sanitizeFilename, formatBytes, storageGet, storageSet, setLogLevel, mimeToExt } from '../lib/utils.js';
+import { logger, getSettings, saveSettings, sanitizeFilename, formatBytes, storageGet, storageSet, setLogLevel, mimeToExt, siteKeyFromUrl, hasHostPermission, hasSitePermission, SITE_HOST_PATTERNS } from '../lib/utils.js';
 import { runExtractorForTab, listExtractors } from '../extractors/registry.js';
 import { applyDynamicBypassRules, buildStaticDnrRules, fetchWithCredentials } from '../lib/restriction-bypass.js';
 
@@ -125,6 +125,23 @@ async function handleMessage(msg, sender) {
     case 'scanTab':
       return await scanTab(msg.tabId);
 
+    case 'hasPermission':
+      // Returns { granted: boolean, siteKey: string|null }
+      return {
+        granted: msg.url ? await hasHostPermission(msg.url) : false,
+        siteKey: msg.url ? siteKeyFromUrl(msg.url) : null,
+      };
+
+    case 'hasSitePermission':
+      return { granted: await hasSitePermission(msg.siteKey) };
+
+    case 'requestPermission':
+      // NOTE: chrome.permissions.request MUST be called from a user gesture.
+      // The popup should call this directly via chrome.permissions.request(),
+      // not via the background. We expose this for completeness but it will
+      // likely fail without a user gesture context.
+      return { error: 'Use chrome.permissions.request() from popup directly' };
+
     case 'download':
       return await startDownload(msg.payload);
 
@@ -158,12 +175,30 @@ const scanCache = new Map(); // tabId -> { ts, media }
 
 async function scanTab(tabId) {
   const tab = await chrome.tabs.get(tabId);
-  if (!tab?.url) return { tab, media: [] };
+  if (!tab?.url) return { tab, media: [], status: 'no_url' };
+
+  // Check host permission FIRST — if missing, return a needs_permission status
+  // so the popup can show an "Enable for this site" button (which must be
+  // clicked from the popup's user-gesture context).
+  const siteKey = siteKeyFromUrl(tab.url);
+  if (siteKey) {
+    const hasPerm = await hasHostPermission(tab.url);
+    if (!hasPerm) {
+      logger.info(`No host permission for ${tab.url} (site ${siteKey}) — returning needs_permission`);
+      return {
+        tab,
+        media: [],
+        status: 'needs_permission',
+        siteKey,
+        patterns: SITE_HOST_PATTERNS[siteKey] || [],
+      };
+    }
+  }
 
   const cached = scanCache.get(tabId);
   if (cached && Date.now() - cached.ts < SCAN_CACHE_TTL) {
     logger.debug(`Scan cache hit for tab ${tabId}`);
-    return { tab, media: cached.media };
+    return { tab, media: cached.media, status: 'ok' };
   }
 
   const settings = await getSettings();
@@ -176,7 +211,7 @@ async function scanTab(tabId) {
   } catch {
     // content script may not be present (e.g. on unsupported page)
   }
-  return { tab, media };
+  return { tab, media, status: 'ok' };
 }
 
 /* ------------------------------------------------------------------ *
