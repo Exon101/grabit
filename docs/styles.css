@@ -91,14 +91,31 @@ code, pre {
   border-radius: 4px;
   color: var(--fg);
 }
+/* Inline code: allow breaking long paths/URLs on mobile */
+code {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
 pre {
   padding: 14px 16px;
   border-radius: 8px;
   overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid var(--border);
   margin: 10px 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
-pre code { background: transparent; padding: 0; }
+/* Code inside <pre> should NOT wrap — horizontal scroll is fine */
+pre code {
+  background: transparent;
+  padding: 0;
+  word-break: normal;
+  overflow-wrap: normal;
+  white-space: pre;
+  display: block;
+}
 
 /* ---------- Background decoration ---------- */
 .bg-decoration {
@@ -646,6 +663,8 @@ pre code { background: transparent; padding: 0; }
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   z-index: 1;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .step:hover {
   border-color: var(--accent);
@@ -666,6 +685,12 @@ pre code { background: transparent; padding: 0; }
 .step-body h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
 .step-body p { font-size: 14px; color: var(--fg-muted); line-height: 1.6; margin-bottom: 10px; }
 .step-body p:last-child { margin-bottom: 0; }
+/* Allow step-body to shrink and wrap long content on mobile */
+.step-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 
 /* ---------- How it works ---------- */
 .how-flow {
@@ -996,7 +1021,13 @@ pre code { background: transparent; padding: 0; }
   .step-num { width: 34px; height: 34px; font-size: 14px; }
   .step-body h3 { font-size: 15px; }
   .step-body p { font-size: 13px; }
-  .step-body pre { font-size: 11px; padding: 10px 12px; }
+  .step-body pre {
+    font-size: 11px;
+    padding: 10px 12px;
+    margin: 8px 0;
+  }
+  /* Inline code in paragraphs should be smaller on mobile */
+  .step-body p code { font-size: 12px; padding: 1px 5px; }
 
   /* How it works */
   .how-flow { flex-direction: column; gap: 12px; }
