@@ -192,6 +192,18 @@ pip install pillow
 python scripts/gen_icons.py
 ```
 
+### CI / Releases
+
+A GitHub Actions workflow (`.github/workflows/build.yml`) runs on every push to `main`:
+
+1. **Builds a fresh zip** of the extension
+2. **Replaces the `latest` release asset** (`grabit-extension.zip`) — the previous zip is clobbered (effectively deleted)
+3. **On major version bumps** (e.g. v1.x → v2.x), snapshots the previous `latest` zip into a permanent `v{N}.x-archive` release before replacing it
+
+So users always have:
+- **[Latest](../../releases/tag/latest)** — the most recent build, replaced on every commit
+- **`v{N}.x-archive`** releases — one per major version, never modified (e.g. `v1.x-archive` contains the last v1.x build, kept forever)
+
 ---
 
 ## Usage

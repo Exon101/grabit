@@ -289,3 +289,23 @@ debug logging, then inspect the service worker via `chrome://extensions` →
 - Accent color is configurable; default `#6366f1` (indigo-500)
 - Font stack: `-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, ...`
   — no web font loaded, uses system default for instant load
+
+### CI / Release strategy (`.github/workflows/build.yml`)
+- **Trigger**: every push to `main` (and `workflow_dispatch`)
+- **Rolling release** tagged `latest`: a single prerelease that holds exactly
+  one asset, `grabit-extension.zip`. On every commit, the asset is replaced
+  via `gh release upload --clobber` — the old zip is effectively deleted.
+- **Archive releases** tagged `v{N}.x-archive`: created once, when the manifest
+  major version bumps from N to N+1. Before replacing `latest`, the workflow
+  downloads the current `latest` zip and uploads it to a new permanent
+  release as `grabit-extension-v{full-version}.zip`. Archive releases are
+  write-once — the workflow checks `gh release view` first and refuses to
+  overwrite an existing archive.
+- **Major version detection**: read `manifest.json` from `HEAD` and `HEAD~1`,
+  compare the first dot-segment of `.version`. Only triggers when `prev < current`
+  (strictly increasing) — downgrades don't archive.
+- **Concurrency**: `cancel-in-progress: false` to prevent losing an archive
+  mid-flight if a new push arrives.
+- **Zip exclusion**: `.git/`, `.github/`, `*.zip`, `.gitignore`, `*.DS_Store`
+  are stripped from the published zip so it contains only runnable extension
+  files (manifest.json at the root).

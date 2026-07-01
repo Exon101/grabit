@@ -1,0 +1,213 @@
+name: Build & Release
+
+# Builds a fresh extension zip on every push to main, replaces the
+# rolling "latest" release asset (so the old zip is deleted), and —
+# when the manifest's major version bumps — snapshots the previous
+# "latest" zip as a permanent "v<major>.x-archive" release before
+# replacing it.
+#
+# Release strategy:
+#   - latest                           → rolling prerelease, single asset
+#                                        `grabit-extension.zip`, overwritten
+#                                        on every commit. Old asset is
+#                                        clobbered (effectively deleted).
+#   - v{N}.x-archive                   → permanent release, created once
+#                                        when major version transitions
+#                                        from N to N+1. Asset is named
+#                                        `grabit-extension-v{full-version}.zip`.
+#                                        Never modified after creation.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write  # needed by gh release create / edit / upload
+
+concurrency:
+  group: build-release
+  cancel-in-progress: false  # never cancel mid-archive; could lose the snapshot
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # need HEAD~1 to diff manifest.json
+
+      - name: Read manifest versions
+        id: versions
+        run: |
+          set -euo pipefail
+
+          CURRENT_VERSION=$(jq -r '.version' manifest.json)
+          CURRENT_MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+          echo "current_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "current_major=$CURRENT_MAJOR"   >> "$GITHUB_OUTPUT"
+
+          PREV_VERSION=""
+          PREV_MAJOR=""
+          if git rev-parse --verify 'HEAD~1' >/dev/null 2>&1; then
+            PREV_VERSION=$(git show 'HEAD~1:manifest.json' 2>/dev/null | jq -r '.version // empty' || true)
+            if [ -n "$PREV_VERSION" ]; then
+              PREV_MAJOR=$(echo "$PREV_VERSION" | cut -d. -f1)
+            fi
+          fi
+          echo "prev_version=$PREV_VERSION" >> "$GITHUB_OUTPUT"
+          echo "prev_major=$PREV_MAJOR"     >> "$GITHUB_OUTPUT"
+
+          echo "::notice::Current v${CURRENT_VERSION} (major ${CURRENT_MAJOR}) — Previous v${PREV_VERSION:-none} (major ${PREV_MAJOR:-none})"
+
+      - name: Build zip
+        run: |
+          set -euo pipefail
+          # Package the extension. Exclude repo-only files so the zip
+          # contains just the runnable extension (manifest.json at root).
+          zip -r grabit-extension.zip . \
+            -x '.git/*' \
+            -x '.github/*' \
+            -x '*.zip' \
+            -x '.gitignore' \
+            -x '*.DS_Store'
+
+          echo "--- zip size ---"
+          ls -lh grabit-extension.zip
+
+          echo "--- zip contents (first 40 entries) ---"
+          unzip -l grabit-extension.zip | head -40
+
+      - name: Archive previous major (only when major version bumped up)
+        id: archive
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREV_MAJOR: ${{ steps.versions.outputs.prev_major }}
+          PREV_VERSION: ${{ steps.versions.outputs.prev_version }}
+          CURRENT_MAJOR: ${{ steps.versions.outputs.current_major }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Only archive when prev exists, is strictly less than current, and the
+          # current commit is the first one of the new major line.
+          if [ -z "$PREV_MAJOR" ] || ! [ "$PREV_MAJOR" -lt "$CURRENT_MAJOR" ] 2>/dev/null; then
+            echo "No major-version increase ($PREV_MAJOR → $CURRENT_MAJOR); skipping archive."
+            echo "archived=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          ARCHIVE_TAG="v${PREV_MAJOR}.x-archive"
+
+          # Don't overwrite an existing archive for this major.
+          if gh release view "$ARCHIVE_TAG" -R "$REPO" >/dev/null 2>&1; then
+            echo "Archive release $ARCHIVE_TAG already exists; not overwriting."
+            echo "archived=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Pull the current 'latest' release asset (which is the previous
+          # major's last build). This is the snapshot we want to preserve.
+          mkdir -p /tmp/prev-release
+          if ! gh release download latest -R "$REPO" -D /tmp/prev-release; then
+            echo "No 'latest' release to archive; skipping."
+            echo "archived=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          ZIP_FILE=$(find /tmp/prev-release -name '*.zip' | head -1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "No zip in latest release; skipping."
+            echo "archived=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Rename to include the previous full version.
+          ARCHIVE_NAME="grabit-extension-v${PREV_VERSION}.zip"
+          cp "$ZIP_FILE" "/tmp/$ARCHIVE_NAME"
+
+          gh release create "$ARCHIVE_TAG" "/tmp/$ARCHIVE_NAME" \
+            -R "$REPO" \
+            --title "GrabIt v${PREV_VERSION} (major ${PREV_MAJOR} archive)" \
+            --notes "Permanent archive of the last v${PREV_VERSION} build before the v${CURRENT_MAJOR}.x line began.
+
+          - Major: ${PREV_MAJOR}
+          - Last version: v${PREV_VERSION}
+          - Archived at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+          This release is preserved indefinitely. Do not modify or delete."
+
+          echo "Created permanent archive: $ARCHIVE_TAG (asset: $ARCHIVE_NAME)"
+          echo "archived=true" >> "$GITHUB_OUTPUT"
+          echo "archive_tag=$ARCHIVE_TAG" >> "$GITHUB_OUTPUT"
+          echo "archive_name=$ARCHIVE_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Update rolling 'latest' release (replace old zip)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CURRENT_VERSION: ${{ steps.versions.outputs.current_version }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          BUILD_DATE=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+          NOTES="Rolling build — replaced on every commit to main.
+
+          - Version: v${CURRENT_VERSION}
+          - Commit: ${SHORT_SHA}
+          - Built: ${BUILD_DATE}"
+
+          if ! gh release view latest -R "$REPO" >/dev/null 2>&1; then
+            # First run: create the rolling release.
+            gh release create latest grabit-extension.zip \
+              -R "$REPO" \
+              --prerelease \
+              --title "GrabIt (latest)" \
+              --notes "$NOTES"
+            echo "Created 'latest' release with v${CURRENT_VERSION}."
+          else
+            # Update release notes, then clobber (overwrite) the asset —
+            # this is the "delete old zip" step. --clobber replaces the
+            # existing asset of the same name atomically.
+            gh release edit latest \
+              -R "$REPO" \
+              --notes "$NOTES"
+
+            gh release upload latest grabit-extension.zip --clobber
+            echo "Replaced 'latest' release asset with v${CURRENT_VERSION}."
+          fi
+
+      - name: Summary
+        if: always()
+        env:
+          CURRENT_VERSION: ${{ steps.versions.outputs.current_version }}
+          CURRENT_MAJOR: ${{ steps.versions.outputs.current_major }}
+          PREV_VERSION: ${{ steps.versions.outputs.prev_version }}
+          PREV_MAJOR: ${{ steps.versions.outputs.prev_major }}
+          ARCHIVED: ${{ steps.archive.outputs.archived }}
+          ARCHIVE_TAG: ${{ steps.archive.outputs.archive_tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          {
+            echo "### Build & Release Summary"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| **Version** | v${CURRENT_VERSION} (major ${CURRENT_MAJOR}) |"
+            echo "| **Commit** | [\`${GITHUB_SHA:0:7}\`](${GITHUB_SERVER_URL}/${REPO}/commit/${GITHUB_SHA}) |"
+            echo "| **Latest zip** | [\`grabit-extension.zip\`](${GITHUB_SERVER_URL}/${REPO}/releases/download/latest/grabit-extension.zip) |"
+            if [ "$ARCHIVED" = "true" ]; then
+              echo "| **Archived** | v${PREV_VERSION} → [\`${ARCHIVE_TAG}\`](${GITHUB_SERVER_URL}/${REPO}/releases/tag/${ARCHIVE_TAG}) |"
+            elif [ -n "$PREV_MAJOR" ] && [ "$PREV_MAJOR" != "$CURRENT_MAJOR" ]; then
+              echo "| **Archive** | skipped (major ${PREV_MAJOR} → ${CURRENT_MAJOR}, but no prior 'latest' to snapshot) |"
+            else
+              echo "| **Archive** | not triggered (no major-version bump) |"
+            fi
+            echo ""
+            echo "#### Strategy"
+            echo "- Every push to \`main\` builds a fresh zip and **replaces** the asset on the [\`latest\`](../../releases/tag/latest) prerelease."
+            echo "- When the manifest major version bumps (e.g. v1.x → v2.x), the previous \`latest\` zip is snapshotted into a permanent \`v{N}.x-archive\` release before being replaced."
+            echo "- Archive releases are write-once; they are never modified or deleted."
+          } >> "$GITHUB_STEP_SUMMARY"
