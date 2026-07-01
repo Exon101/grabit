@@ -70,7 +70,7 @@
         "https://*.twitch.tv/*",
         "https://*.bilibili.com/*"
       ],
-      "js": ["content/content.js"],
+      "js": ["content/hover-overlay.js", "content/content.js"],
       "run_at": "document_idle",
       "all_frames": false
     }

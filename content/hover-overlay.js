@@ -61,8 +61,9 @@
           align-items: center;
           gap: 8px;
           padding: 10px 16px 10px 12px;
-          background: ${() => ''} var(--grabit-accent, #6366f1);
+          background: var(--grabit-accent, #6366f1);
           color: #fff;
+          pointer-events: auto;
           border: 0;
           border-radius: 999px;
           font-size: 14px;
@@ -83,6 +84,7 @@
         .popover {
           position: fixed;
           z-index: 2147483647;
+          pointer-events: auto;
           background: var(--grabit-popover-bg, #fff);
           color: var(--grabit-popover-fg, #1f2937);
           border: 1px solid var(--grabit-popover-border, rgba(0,0,0,0.08));

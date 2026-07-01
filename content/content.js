@@ -3,13 +3,17 @@
  *
  * Runs at document_idle on supported sites. Responsibilities:
  *   1) Listen for messages from the popup/background (scanResult, etc.)
- *   2) Inject the YouTube signature bridge on youtube.com
- *   3) Mount the hover-overlay widget on detected video players
+ *   2) Request the YouTube signature bridge injection (MAIN world)
+ *   3) Mount the hover-overlay widget (loaded via manifest content_scripts)
  *   4) Watch for SPA navigations (history.pushState/replaceState/popstate)
  *      so the overlay re-mounts on YouTube/Twitter route changes
  *
  * The content script does NOT do extraction — that's the background's job.
  * It only handles UI (overlay) and forwards user actions to the background.
+ *
+ * NOTE: content/hover-overlay.js is loaded BEFORE this file (per manifest
+ * content_scripts js[] ordering). It defines window.GrabItOverlay in the
+ * same isolated world, so we can use it directly — no fetch-inject needed.
  */
 
 (function () {
@@ -63,18 +67,41 @@
   });
 
   /* ---------------------------------------------------------------- *
+   * Overlay CSS injection (host-element styles only)
+   *   The overlay's shadow-DOM styles are inline in hover-overlay.js.
+   *   This external CSS only styles the #grabit-overlay-root host
+   *   element from the outside.
+   * ---------------------------------------------------------------- */
+  let cssInjected = false;
+  function injectOverlayCss() {
+    if (cssInjected) return;
+    try {
+      const cssUrl = chrome.runtime.getURL('content/hover-overlay.css');
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = cssUrl;
+      document.documentElement.appendChild(link);
+      cssInjected = true;
+    } catch (e) {
+      warn('Failed to inject overlay CSS', e);
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
    * SPA navigation detection
    *   YouTube and Twitter are SPAs — page content changes without a
    *   full document reload. We patch history.pushState/replaceState
-   *   and listen for popstate so we can re-inject the overlay.
+   *   and listen for popstate so we can re-scan and re-mount overlay.
    * ---------------------------------------------------------------- */
   let currentUrl = location.href;
   function onSpaNav() {
     if (location.href === currentUrl) return;
     currentUrl = location.href;
     log('SPA navigation →', currentUrl);
-    // Tell the background to re-scan
-    chrome.runtime.sendMessage({ type: 'scanTab', tabId: null }).catch(() => {});
+    // Ask the background to re-scan the active tab (this tab)
+    chrome.runtime.sendMessage({ type: 'scanActiveTab' }).catch(() => {
+      // Popup may not be open; that's fine — background still caches results
+    });
     // Remount overlay
     scheduleOverlayMount();
   }
@@ -91,15 +118,12 @@
 
   /* ---------------------------------------------------------------- *
    * YouTube signature bridge injection
-   *   We inject lib/yt-bridge.js into the page's MAIN world via a
-   *   <script> tag. The bridge exposes window.__grabit_yt_resolve(url)
-   *   that the extractor can call via chrome.tabs.executeScript or
-   *   window.postMessage from a script that runs in MAIN world too.
-   *
-   *   For MV3 we use chrome.scripting.executeScript({ world: 'MAIN' })
-   *   from the background, so here we just request that injection.
+   *   The bridge (lib/yt-bridge.js) must run in the page's MAIN world
+   *   to access YouTube's player functions. Content scripts can't do
+   *   this directly — we ask the background to inject it via
+   *   chrome.scripting.executeScript({ world: 'MAIN' }).
    * ---------------------------------------------------------------- */
-  function injectYtBridge() {
+  function requestYtBridgeInjection() {
     if (!location.hostname.includes('youtube.com')) return;
     chrome.runtime.sendMessage({ type: 'injectYtBridge' }).catch(() => {
       // Background may not have a handler yet; ignore
@@ -107,38 +131,10 @@
   }
 
   /* ---------------------------------------------------------------- *
-   * Hover overlay mount (lazy-loaded)
-   *   The overlay UI lives in content/hover-overlay.js + .css.
-   *   We load them lazily to keep the content script boot fast.
+   * Hover overlay mount
+   *   hover-overlay.js is loaded via manifest content_scripts (before
+   *   this file), so window.GrabItOverlay is already defined.
    * ---------------------------------------------------------------- */
-  let overlayLoaded = false;
-  async function ensureOverlayLoaded() {
-    if (overlayLoaded) return true;
-    try {
-      // Inject CSS
-      const cssUrl = chrome.runtime.getURL('content/hover-overlay.css');
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = cssUrl;
-      document.documentElement.appendChild(link);
-
-      // Inject JS — we use import() but content scripts are non-module,
-      // so we fetch the file and inject as a classic script.
-      const jsUrl = chrome.runtime.getURL('content/hover-overlay.js');
-      const res = await fetch(jsUrl);
-      const code = await res.text();
-      const s = document.createElement('script');
-      s.textContent = code;
-      (document.head || document.documentElement).appendChild(s);
-
-      overlayLoaded = true;
-      return true;
-    } catch (e) {
-      warn('Failed to load overlay', e);
-      return false;
-    }
-  }
-
   let mountTimer = null;
   function scheduleOverlayMount() {
     if (mountTimer) clearTimeout(mountTimer);
@@ -148,12 +144,18 @@
   function tryMountOverlay() {
     if (!settings.showHoverOverlay) return;
     if (!window.GrabItOverlay) {
-      // Overlay script not yet loaded — try loading it now
-      ensureOverlayLoaded().then(ok => {
-        if (ok) setTimeout(tryMountOverlay, 100);
-      });
+      warn('window.GrabItOverlay not defined — hover-overlay.js failed to load');
       return;
     }
+    injectOverlayCss();
+
+    // If overlay already mounted, just update media + settings
+    if (overlayWidget) {
+      overlayWidget.applySettings(settings);
+      overlayWidget.updateMedia(lastScanMedia);
+      return;
+    }
+
     overlayWidget = window.GrabItOverlay.mount({
       settings,
       onDownload: (variant, media) => {
@@ -172,6 +174,7 @@
       },
       getMedia: () => lastScanMedia,
     });
+    log('Overlay mounted');
   }
 
   /* ---------------------------------------------------------------- *
@@ -209,8 +212,8 @@
    * ---------------------------------------------------------------- */
   (async () => {
     await loadSettings();
-    log('Content script booted on', location.host);
-    injectYtBridge();
+    log('Content script booted on', location.host, '— overlay available:', !!window.GrabItOverlay);
+    requestYtBridgeInjection();
     if (settings.showHoverOverlay) scheduleOverlayMount();
   })();
 })();

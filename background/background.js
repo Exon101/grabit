@@ -16,7 +16,7 @@
  * structured messages { ok: true, data } | { ok: false, error }.
  */
 
-import { logger, getSettings, saveSettings, sanitizeFilename, formatBytes, storageGet, storageSet, setLogLevel } from '../lib/utils.js';
+import { logger, getSettings, saveSettings, sanitizeFilename, formatBytes, storageGet, storageSet, setLogLevel, mimeToExt } from '../lib/utils.js';
 import { runExtractorForTab, listExtractors } from '../extractors/registry.js';
 import { applyDynamicBypassRules, buildStaticDnrRules, fetchWithCredentials } from '../lib/restriction-bypass.js';
 
@@ -133,6 +133,9 @@ async function handleMessage(msg, sender) {
 
     case 'clearRecent':
       return await clearRecentDownloads();
+
+    case 'injectYtBridge':
+      return await injectYtBridgeIntoTab(sender.tab?.id);
 
     default:
       throw new Error(`Unknown message type: ${msg?.type}`);
@@ -406,7 +409,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, change, tab) => {
 
 function buildFilename(rawName, mime, settings, meta, quality) {
   const tmpl = settings.filenameTemplate || '{site}_{title}_{quality}.{ext}';
-  const ext = (mime && require_mimeToExt(mime)) || extFromMeta(meta) || 'mp4';
+  const ext = (mime && mimeToExt(mime)) || extFromMeta(meta) || 'mp4';
   const site = meta?.site || 'media';
   const title = sanitizeFilename(rawName || meta?.title || 'untitled', { maxLength: 80 });
   const q = quality || 'source';
@@ -422,9 +425,6 @@ function buildFilename(rawName, mime, settings, meta, quality) {
   return sanitizeFilename(filled, { maxLength: 180 });
 }
 
-// Inline import to avoid circular dependency
-import { mimeToExt as require_mimeToExt } from '../lib/utils.js';
-
 function extFromMeta(meta) {
   if (!meta?.site) return '';
   const map = {
@@ -439,6 +439,28 @@ function pathJoin(folder, filename) {
   const f = folder.replace(/^[/\\]+|[/\\]+$/g, '');
   const n = filename.replace(/^[/\\]+/, '');
   return `${f}/${n}`;
+}
+
+/**
+ * Inject lib/yt-bridge.js into the page's MAIN world.
+ * The bridge exposes window.__grabit_yt_resolve(url) that the YouTube
+ * extractor can use to resolve ciphered video URLs.
+ */
+async function injectYtBridgeIntoTab(tabId) {
+  if (!tabId) return { ok: false, error: 'No tabId' };
+  if (!chrome.scripting) return { ok: false, error: 'scripting API unavailable' };
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      files: ['lib/yt-bridge.js'],
+    });
+    logger.info(`YT bridge injected into tab ${tabId}`);
+    return { ok: true };
+  } catch (e) {
+    logger.warn('YT bridge injection failed', e?.message);
+    return { ok: false, error: e?.message || 'injection failed' };
+  }
 }
 
 async function notify(title, message) {
