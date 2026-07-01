@@ -278,7 +278,17 @@ async function scanTab(tabId) {
   const settings = await getSettings();
   const media = await runExtractorForTab(tab, { settings });
 
-  scanCache.set(tabId, { ts: Date.now(), media });
+  // Only cache if we got at least one media item WITH variants (successful scan).
+  // Don't cache error results — they're usually transient (consent page, network)
+  // and caching them would show stale errors for 30 seconds.
+  const hasRealMedia = media.some(m => m.variants?.length > 0);
+  if (hasRealMedia) {
+    scanCache.set(tabId, { ts: Date.now(), media });
+  } else {
+    // Clear any stale cache so the next scan is fresh
+    scanCache.delete(tabId);
+  }
+
   // Notify content script (if any) so it can update its overlay state
   try {
     await chrome.tabs.sendMessage(tabId, { type: 'scanResult', media });
