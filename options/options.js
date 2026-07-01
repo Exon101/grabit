@@ -512,12 +512,184 @@
   function applyUpdaterSettings(settings) {
     $('#auto-check-updates').checked = settings.autoCheckUpdates !== false;
     const interval = settings.updateCheckIntervalMin || 360;
-    // Round to nearest option in the select
     const sel = $('#update-check-interval');
     const opts = Array.from(sel.options).map(o => parseInt(o.value, 10));
     const closest = opts.reduce((a, b) => Math.abs(b - interval) < Math.abs(a - interval) ? b : a);
     sel.value = String(closest);
     $('#notify-on-update').checked = settings.notifyOnUpdate !== false;
+    $('#keep-sw-alive').checked = settings.keepServiceWorkerAlive !== false;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Error Log
+   * ---------------------------------------------------------------- */
+  let allErrors = [];
+  let currentFilter = 'all';
+
+  async function loadErrorLog() {
+    try {
+      allErrors = await send('getErrors', { limit: 100 }) || [];
+      renderErrorLog();
+    } catch (e) {
+      console.warn('Failed to load errors', e);
+    }
+  }
+
+  function renderErrorLog() {
+    const list = $('#error-log-list');
+    const filtered = currentFilter === 'all'
+      ? allErrors
+      : allErrors.filter(e => (e.level || 'error') === currentFilter);
+
+    $('#error-count').textContent = `${allErrors.length} error${allErrors.length === 1 ? '' : 's'}`;
+
+    if (!filtered.length) {
+      list.innerHTML = `<div class="error-log-empty">${allErrors.length ? 'No errors match this filter.' : 'No errors captured yet.'}</div>`;
+      return;
+    }
+
+    list.innerHTML = filtered.map(e => {
+      const time = e.timestamp ? new Date(e.timestamp).toLocaleString() : '?';
+      const level = e.level || 'error';
+      const msg = escapeHtml(e.message || '');
+      const stack = e.stack ? escapeHtml(e.stack.split('\n').slice(0, 5).join('\n')) : '';
+      const context = e.context ? escapeHtml(JSON.stringify(e.context, null, 2)) : '';
+      const id = e.id || '';
+      return `
+        <div class="error-entry level-${level}" data-id="${id}">
+          <div class="error-entry-head">
+            <div class="error-entry-meta">
+              <span class="error-level-badge ${level}">${level}</span>
+              <span>${time}</span>
+              ${e.name && e.name !== 'Error' ? `<span>· ${escapeHtml(e.name)}</span>` : ''}
+            </div>
+            <button class="error-entry-copy" data-copy-id="${id}">Copy</button>
+          </div>
+          <div class="error-entry-message">${msg}</div>
+          ${stack ? `<div class="error-entry-stack">${stack}</div>` : ''}
+          ${context ? `<div class="error-entry-context">${context}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    // Wire copy buttons
+    list.querySelectorAll('.error-entry-copy').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.copyId;
+        const entry = allErrors.find(e => e.id === id);
+        if (entry) {
+          const text = formatErrorForCopy(entry);
+          navigator.clipboard.writeText(text).then(() => {
+            showToast('Error copied', 'success');
+          }).catch(() => showToast('Copy failed', 'error'));
+        }
+      });
+    });
+  }
+
+  function formatErrorForCopy(e) {
+    const lines = [
+      `[${e.timestamp}] ${e.level || 'error'}: ${e.message}`,
+    ];
+    if (e.name && e.name !== 'Error') lines.push(`Type: ${e.name}`);
+    if (e.stack) lines.push('', 'Stack:', e.stack);
+    if (e.context) lines.push('', 'Context:', JSON.stringify(e.context, null, 2));
+    if (e.breadcrumbs?.length) {
+      lines.push('', 'Breadcrumbs:');
+      e.breadcrumbs.forEach(b => lines.push(`  [${b.timestamp}] ${b.category || ''}: ${b.message || ''}`));
+    }
+    return lines.join('\n');
+  }
+
+  function escapeHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function wireErrorLog() {
+    // Filter buttons
+    $$('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilter = btn.dataset.filter;
+        renderErrorLog();
+      });
+    });
+
+    // Refresh
+    $('#refresh-errors-btn').addEventListener('click', async () => {
+      const btn = $('#refresh-errors-btn');
+      btn.textContent = 'Refreshing...';
+      await loadErrorLog();
+      btn.textContent = 'Refresh';
+      showToast('Error log refreshed', 'success');
+    });
+
+    // Copy all
+    $('#copy-all-errors-btn').addEventListener('click', () => {
+      if (!allErrors.length) {
+        showToast('No errors to copy', 'error');
+        return;
+      }
+      const text = allErrors.map(formatErrorForCopy).join('\n\n---\n\n');
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(`${allErrors.length} errors copied to clipboard`, 'success');
+      }).catch(() => showToast('Copy failed', 'error'));
+    });
+
+    // Clear
+    $('#clear-errors-log-btn').addEventListener('click', async () => {
+      try {
+        await send('clearErrors');
+        allErrors = [];
+        renderErrorLog();
+        showToast('Error log cleared', 'success');
+      } catch (e) {
+        showToast('Clear failed: ' + e.message, 'error');
+      }
+    });
+
+    // Keep service worker alive toggle
+    $('#keep-sw-alive').addEventListener('change', async (e) => {
+      const enabled = e.target.checked;
+      try {
+        await send('setKeepalive', { enabled });
+        await persist({ keepServiceWorkerAlive: enabled });
+        showToast(enabled ? 'Keepalive enabled' : 'Keepalive disabled', 'success');
+        await checkSwStatus();
+      } catch (err) {
+        showToast('Failed: ' + err.message, 'error');
+        e.target.checked = !enabled;
+      }
+    });
+
+    // Check SW status
+    $('#check-sw-btn').addEventListener('click', checkSwStatus);
+  }
+
+  async function checkSwStatus() {
+    const dot = $('#sw-status-dot');
+    const text = $('#sw-status-text');
+    const detail = $('#sw-status-detail');
+    try {
+      const status = await send('getKeepaliveStatus');
+      if (status.running) {
+        dot.className = 'sw-status-dot running';
+        text.textContent = 'Service worker alive';
+        const secAgo = status.secondsSinceTick;
+        detail.textContent = secAgo !== null ? `last tick ${secAgo}s ago` : '';
+      } else {
+        dot.className = 'sw-status-dot stopped';
+        text.textContent = 'Keepalive stopped';
+        detail.textContent = '';
+      }
+    } catch (e) {
+      dot.className = 'sw-status-dot stopped';
+      text.textContent = 'Status unknown';
+      detail.textContent = e.message;
+    }
   }
 
   /* ---------------------------------------------------------------- *
@@ -600,11 +772,16 @@
     wireAdvanced();
     wireAbout();
     wireUpdates();
+    wireErrorLog();
 
     applySettingsToUI();
     applyUpdaterSettings(settings);
     await renderSiteToggles();
     await refreshRecentCount();
     await loadUpdateStatus();
+    await loadErrorLog();
+    await checkSwStatus();
+    // Auto-refresh SW status every 5 seconds
+    setInterval(checkSwStatus, 5000);
   });
 })();

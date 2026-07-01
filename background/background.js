@@ -19,7 +19,7 @@
 import { logger, getSettings, saveSettings, sanitizeFilename, formatBytes, storageGet, storageSet, setLogLevel, mimeToExt, siteKeyFromUrl, hasHostPermission, hasSitePermission, SITE_HOST_PATTERNS } from '../lib/utils.js';
 import { runExtractorForTab, listExtractors } from '../extractors/registry.js';
 import { applyDynamicBypassRules, buildStaticDnrRules, fetchWithCredentials } from '../lib/restriction-bypass.js';
-import { checkForUpdates, downloadUpdate, getUpdateStatus, scheduleUpdateChecks, clearUpdateSchedule, wireAlarmHandler, wireNotificationHandler, UPDATER_DEFAULTS } from '../lib/updater.js';
+import { checkForUpdates, downloadUpdate, getUpdateStatus, scheduleUpdateChecks, clearUpdateSchedule, wireAlarmHandler, wireNotificationHandler, startKeepalive, stopKeepalive, UPDATER_DEFAULTS } from '../lib/updater.js';
 import { Sentry } from '../lib/sentry.js';
 
 /* ------------------------------------------------------------------ *
@@ -48,6 +48,10 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   if (settings.autoCheckUpdates !== false) {
     await scheduleUpdateChecks(settings.updateCheckIntervalMin || UPDATER_DEFAULTS.updateCheckIntervalMin);
   }
+  // Keep service worker alive (if enabled)
+  if (settings.keepServiceWorkerAlive !== false) {
+    await startKeepalive();
+  }
   // On install or major update, check immediately
   if (details.reason === 'install') {
     setTimeout(() => checkForUpdates({ manual: true }).catch(() => {}), 3000);
@@ -71,6 +75,10 @@ chrome.runtime.onStartup.addListener(async () => {
   // Re-schedule alarms (alarms don't persist across browser restarts)
   if (startupSettings.autoCheckUpdates !== false) {
     await scheduleUpdateChecks(startupSettings.updateCheckIntervalMin || UPDATER_DEFAULTS.updateCheckIntervalMin);
+  }
+  // Restart keepalive (alarms don't persist across browser restarts)
+  if (startupSettings.keepServiceWorkerAlive !== false) {
+    await startKeepalive();
   }
 });
 
@@ -225,6 +233,25 @@ async function handleMessage(msg, sender) {
     case 'clearErrors':
       await Sentry.clearErrors();
       return { ok: true };
+
+    case 'setKeepalive':
+      if (msg.enabled) {
+        await startKeepalive();
+      } else {
+        await stopKeepalive();
+      }
+      return { ok: true, enabled: msg.enabled };
+
+    case 'getKeepaliveStatus':
+      {
+        const alarm = await chrome.alarms.get('grabit-keepalive');
+        const lastTick = await storageGet('local', '_keepalive', 0);
+        return {
+          running: !!alarm,
+          lastTick,
+          secondsSinceTick: lastTick ? Math.round((Date.now() - lastTick) / 1000) : null,
+        };
+      }
 
     default:
       throw new Error(`Unknown message type: ${msg?.type}`);
