@@ -434,6 +434,96 @@ body {
   flex-shrink: 0;
 }
 
+/* ---------- Updates section ---------- */
+.update-status-card { background: linear-gradient(135deg, var(--accent-soft), transparent 60%); }
+.update-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.update-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.update-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--fg-muted);
+}
+.update-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  letter-spacing: -0.3px;
+}
+.update-stat-value.status-update {
+  color: var(--success);
+}
+.update-stat-value.status-uptodate {
+  color: var(--accent);
+}
+.update-stat-value.status-error {
+  color: var(--danger);
+  font-size: 13px;
+}
+.update-actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.update-actions .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  padding: 7px 14px;
+  font-size: 12px;
+}
+
+.update-detail {
+  margin: 14px 0;
+  padding: 14px;
+  background: var(--bg-hover);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.update-detail h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--success);
+}
+.release-notes {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+  white-space: pre-wrap;
+  max-height: 220px;
+  overflow-y: auto;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+@media (max-width: 720px) {
+  .update-status-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Spinning animation for check-now button */
+.spinning {
+  transform-origin: 12px 12px;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ---------- About ---------- */
 .about-card { text-align: left; }
 .about-logo { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }

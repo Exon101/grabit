@@ -298,6 +298,157 @@
   }
 
   /* ---------------------------------------------------------------- *
+   * Updates
+   * ---------------------------------------------------------------- */
+  async function loadUpdateStatus() {
+    try {
+      const status = await send('getUpdateStatus');
+      renderUpdateStatus(status);
+    } catch (e) {
+      console.warn('[GrabIt options] update status load failed', e);
+    }
+  }
+
+  function renderUpdateStatus(status) {
+    const manifest = chrome.runtime.getManifest();
+    $('#cur-version').textContent = `v${manifest.version}`;
+    $('#latest-version').textContent = status?.latestVersion ? `v${status.latestVersion}` : '—';
+
+    if (status?.checkedAt) {
+      const diff = Date.now() - status.checkedAt;
+      let str;
+      if (diff < 60_000) str = 'just now';
+      else if (diff < 3600_000) str = `${Math.floor(diff / 60_000)}m ago`;
+      else if (diff < 86400_000) str = `${Math.floor(diff / 3600_000)}h ago`;
+      else str = `${Math.floor(diff / 86400_000)}d ago`;
+      $('#last-checked').textContent = str;
+    } else {
+      $('#last-checked').textContent = 'never';
+    }
+
+    const badge = $('#update-status-badge');
+    badge.classList.remove('status-update', 'status-uptodate', 'status-error');
+    if (status?.error) {
+      badge.textContent = status.error === 'rate_limited' ? 'rate-limited' : 'error';
+      badge.classList.add('status-error');
+    } else if (status?.hasUpdate) {
+      badge.textContent = 'update available';
+      badge.classList.add('status-update');
+    } else if (status?.checkedAt) {
+      badge.textContent = 'up to date';
+      badge.classList.add('status-uptodate');
+    } else {
+      badge.textContent = 'never checked';
+    }
+
+    // Show/hide update-available card
+    const availCard = $('#update-available-card');
+    if (status?.hasUpdate) {
+      availCard.hidden = false;
+      $('#update-detail-title').textContent = `v${status.latestVersion}`;
+      $('#update-detail-notes').textContent = status.releaseNotes || '(No release notes provided)';
+      $('#update-gh-link').href = status.releaseUrl || '#';
+    } else {
+      availCard.hidden = true;
+    }
+  }
+
+  function wireUpdates() {
+    // Auto-check toggle
+    const autoCb = $('#auto-check-updates');
+    autoCb.addEventListener('change', async (e) => {
+      const enabled = e.target.checked;
+      await persist({
+        autoCheckUpdates: enabled,
+        updateCheckIntervalMin: parseInt($('#update-check-interval').value, 10),
+      });
+      // Reschedule alarm
+      try {
+        await send('rescheduleUpdateChecks', {
+          enabled,
+          intervalMin: parseInt($('#update-check-interval').value, 10),
+        });
+      } catch (err) {
+        showToast('Reschedule failed: ' + err.message, 'error');
+      }
+      showToast(enabled ? 'Auto-check enabled' : 'Auto-check disabled', 'success');
+    });
+
+    // Frequency select
+    $('#update-check-interval').addEventListener('change', async (e) => {
+      const intervalMin = parseInt(e.target.value, 10);
+      await persist({ updateCheckIntervalMin: intervalMin });
+      if (autoCb.checked) {
+        try {
+          await send('rescheduleUpdateChecks', { enabled: true, intervalMin });
+          showToast(`Check frequency: every ${intervalMin >= 60 ? (intervalMin / 60) + 'h' : intervalMin + 'min'}`, 'success');
+        } catch (err) {
+          showToast('Reschedule failed: ' + err.message, 'error');
+        }
+      }
+    });
+
+    // Notify toggle
+    $('#notify-on-update').addEventListener('change', (e) => {
+      persist({ notifyOnUpdate: e.target.checked });
+    });
+
+    // Check now button
+    $('#check-now-btn').addEventListener('click', async () => {
+      const btn = $('#check-now-btn');
+      const original = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7" class="spinning"/></svg> Checking…`;
+      try {
+        const status = await send('checkForUpdates');
+        renderUpdateStatus(status);
+        if (status?.hasUpdate) {
+          showToast(`Update available: v${status.latestVersion}`, 'success');
+        } else if (status?.error) {
+          showToast(`Check failed: ${status.error}`, 'error');
+        } else {
+          showToast('You\'re up to date', 'success');
+        }
+      } catch (e) {
+        showToast('Check failed: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = original;
+      }
+    });
+
+    // Update now button (in the available card)
+    $('#update-now-options-btn').addEventListener('click', async () => {
+      const btn = $('#update-now-options-btn');
+      const original = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = 'Downloading…';
+      try {
+        await send('downloadUpdate');
+        showToast('Update downloading — open the Extensions tab to reload after extracting', 'success');
+        // Open the extensions page so user can reload after
+        chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}` });
+      } catch (e) {
+        showToast('Update failed: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = original;
+      }
+    });
+  }
+
+  function applyUpdaterSettings(settings) {
+    $('#auto-check-updates').checked = settings.autoCheckUpdates !== false;
+    const interval = settings.updateCheckIntervalMin || 360;
+    // Round to nearest option in the select
+    const sel = $('#update-check-interval');
+    const opts = Array.from(sel.options).map(o => parseInt(o.value, 10));
+    const closest = opts.reduce((a, b) => Math.abs(b - interval) < Math.abs(a - interval) ? b : a);
+    sel.value = String(closest);
+    $('#notify-on-update').checked = settings.notifyOnUpdate !== false;
+  }
+
+  /* ---------------------------------------------------------------- *
    * Apply loaded settings → UI
    * ---------------------------------------------------------------- */
   function applySettingsToUI() {
@@ -372,9 +523,12 @@
     wireOverlay();
     wireAdvanced();
     wireAbout();
+    wireUpdates();
 
     applySettingsToUI();
+    applyUpdaterSettings(settings);
     await renderSiteToggles();
     await refreshRecentCount();
+    await loadUpdateStatus();
   });
 })();

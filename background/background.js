@@ -19,24 +19,43 @@
 import { logger, getSettings, saveSettings, sanitizeFilename, formatBytes, storageGet, storageSet, setLogLevel, mimeToExt, siteKeyFromUrl, hasHostPermission, hasSitePermission, SITE_HOST_PATTERNS } from '../lib/utils.js';
 import { runExtractorForTab, listExtractors } from '../extractors/registry.js';
 import { applyDynamicBypassRules, buildStaticDnrRules, fetchWithCredentials } from '../lib/restriction-bypass.js';
+import { checkForUpdates, downloadUpdate, getUpdateStatus, scheduleUpdateChecks, clearUpdateSchedule, wireAlarmHandler, wireNotificationHandler, UPDATER_DEFAULTS } from '../lib/updater.js';
 
 /* ------------------------------------------------------------------ *
  * Lifecycle
  * ------------------------------------------------------------------ */
 
-chrome.runtime.onInstalled.addListener(async () => {
-  logger.info('GrabIt installed/updated');
+chrome.runtime.onInstalled.addListener(async (details) => {
+  logger.info('GrabIt installed/updated', details);
   await initLogLevel();
   await applyStaticDnrRules();
   await createContextMenus();
   await ensureDefaultSettings();
+  // Schedule update checks (default every 6h)
+  const settings = await getSettings();
+  if (settings.autoCheckUpdates !== false) {
+    await scheduleUpdateChecks(settings.updateCheckIntervalMin || UPDATER_DEFAULTS.updateCheckIntervalMin);
+  }
+  // On install or major update, check immediately
+  if (details.reason === 'install') {
+    setTimeout(() => checkForUpdates({ manual: true }).catch(() => {}), 3000);
+  }
 });
 
 chrome.runtime.onStartup.addListener(async () => {
   await initLogLevel();
   await applyStaticDnrRules();
   await createContextMenus();
+  // Re-schedule alarms (alarms don't persist across browser restarts)
+  const settings = await getSettings();
+  if (settings.autoCheckUpdates !== false) {
+    await scheduleUpdateChecks(settings.updateCheckIntervalMin || UPDATER_DEFAULTS.updateCheckIntervalMin);
+  }
 });
+
+// Wire updater event handlers (alarms + notification buttons)
+wireAlarmHandler();
+wireNotificationHandler();
 
 async function initLogLevel() {
   const s = await getSettings();
@@ -153,6 +172,23 @@ async function handleMessage(msg, sender) {
 
     case 'injectYtBridge':
       return await injectYtBridgeIntoTab(sender.tab?.id);
+
+    case 'getUpdateStatus':
+      return await getUpdateStatus();
+
+    case 'checkForUpdates':
+      return await checkForUpdates({ manual: true });
+
+    case 'downloadUpdate':
+      return await downloadUpdate();
+
+    case 'rescheduleUpdateChecks':
+      if (msg.enabled) {
+        await scheduleUpdateChecks(msg.intervalMin || UPDATER_DEFAULTS.updateCheckIntervalMin);
+      } else {
+        await clearUpdateSchedule();
+      }
+      return { scheduled: msg.enabled };
 
     default:
       throw new Error(`Unknown message type: ${msg?.type}`);

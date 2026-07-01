@@ -425,6 +425,114 @@
   });
 
   /* ---------------------------------------------------------------- *
+   * Updater
+   * ---------------------------------------------------------------- */
+  let updateStatus = null;
+
+  async function loadUpdateBanner() {
+    try {
+      updateStatus = await send('getUpdateStatus');
+      renderUpdateBanner(updateStatus);
+    } catch (e) {
+      console.warn('[GrabIt popup] update status load failed', e);
+    }
+  }
+
+  function renderUpdateBanner(status) {
+    const banner = $('#update-banner');
+    if (!status?.hasUpdate) {
+      banner.hidden = true;
+      return;
+    }
+    banner.hidden = false;
+    $('#update-version').textContent = `v${status.latestVersion}`;
+
+    const notesLink = $('#update-notes-link');
+    if (status.releaseNotes) {
+      notesLink.hidden = false;
+      notesLink.onclick = (e) => {
+        e.preventDefault();
+        showReleaseNotesModal(status);
+      };
+    } else {
+      notesLink.hidden = true;
+    }
+
+    // Wire "Update now" button
+    const updateBtn = $('#update-now-btn');
+    updateBtn.onclick = () => triggerUpdate(status);
+
+    // Wire dismiss
+    $('#update-dismiss-btn').onclick = () => {
+      banner.hidden = true;
+      // Also clear the badge so the user isn't bothered again until next check
+      try { chrome.action.setBadgeText({ text: '' }); } catch { /* ignore */ }
+    };
+  }
+
+  function showReleaseNotesModal(status) {
+    const modal = $('#release-notes-modal');
+    $('#release-notes-title').textContent = `What's new in v${status.latestVersion}`;
+    const body = $('#release-notes-body');
+    body.className = 'modal-body release-notes';
+    body.textContent = status.releaseNotes || '(No release notes provided)';
+    $('#release-notes-gh-link').href = status.releaseUrl || '#';
+    $('#release-notes-update-btn').onclick = () => {
+      closeModal('#release-notes-modal');
+      triggerUpdate(status);
+    };
+    modal.hidden = false;
+
+    $('#release-notes-close').onclick = () => closeModal('#release-notes-modal');
+    $('#release-notes-backdrop').onclick = () => closeModal('#release-notes-modal');
+  }
+
+  function showUpdateInstructionsModal(latestVersion) {
+    const modal = $('#update-instructions-modal');
+    $('#instr-version').textContent = latestVersion;
+    modal.hidden = false;
+
+    $('#update-instructions-close').onclick = () => closeModal('#update-instructions-modal');
+    $('#update-instructions-backdrop').onclick = () => closeModal('#update-instructions-modal');
+
+    $('#instr-show-download').onclick = async () => {
+      try {
+        const status = await send('getUpdateStatus');
+        if (status.updateDownloadId) {
+          chrome.downloads.show(status.updateDownloadId);
+        }
+      } catch (e) {
+        showToast('Could not show download: ' + e.message, 'error');
+      }
+    };
+
+    $('#instr-open-extensions').onclick = () => {
+      chrome.tabs.create({ url: `chrome://extensions/?id=${chrome.runtime.id}` });
+    };
+  }
+
+  function closeModal(sel) {
+    $(sel).hidden = true;
+  }
+
+  async function triggerUpdate(status) {
+    const btn = $('#update-now-btn');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="v-spinner"></span> Downloading…`;
+    try {
+      await send('downloadUpdate');
+      showToast('Update downloading — see instructions', 'success');
+      showUpdateInstructionsModal(status.latestVersion);
+    } catch (e) {
+      showToast('Update failed: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
    * Boot
    * ---------------------------------------------------------------- */
   document.addEventListener('DOMContentLoaded', async () => {
@@ -441,6 +549,7 @@
     await loadSettings();
     await renderTabCard();
     await loadRecent();
+    await loadUpdateBanner();  // Load update banner BEFORE scan so it's visible immediately
     await scanAndRender();
   });
 })();
