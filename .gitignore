@@ -1,0 +1,37 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build artifacts
+dist/
+build/
+*.zip
+*.tar.gz
+grabit-extension.zip
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Project scratch
+.env
+.env.local
+download/
+tool-results/
+pastebin_content.json
+chat_content.json
+worklog.md
+
+# Test
+coverage/
+.nyc_output/

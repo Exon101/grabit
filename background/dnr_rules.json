@@ -1,0 +1,152 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        { "header": "Referer", "operation": "set", "value": "https://twitter.com/" },
+        { "header": "Origin", "operation": "set", "value": "https://twitter.com" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||video.twimg.com^",
+      "resourceTypes": ["media", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        { "header": "Referer", "operation": "set", "value": "https://x.com/" },
+        { "header": "Origin", "operation": "set", "value": "https://x.com" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||video.x.com^",
+      "resourceTypes": ["media", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        { "header": "Referer", "operation": "set", "value": "https://www.instagram.com/" },
+        { "header": "Origin", "operation": "set", "value": "https://www.instagram.com" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||scontent.cdninstagram.com^",
+      "resourceTypes": ["media", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 4,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        { "header": "Referer", "operation": "set", "value": "https://www.instagram.com/" },
+        { "header": "Origin", "operation": "set", "value": "https://www.instagram.com" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||video-ort.cdninstagram.com^",
+      "resourceTypes": ["media", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 5,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        { "header": "Referer", "operation": "set", "value": "https://www.reddit.com/" },
+        { "header": "Origin", "operation": "set", "value": "https://www.reddit.com" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||v.redd.it^",
+      "resourceTypes": ["media", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 6,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        { "header": "Referer", "operation": "set", "value": "https://www.tiktok.com/" },
+        { "header": "Origin", "operation": "set", "value": "https://www.tiktok.com" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||tiktokcdn.com^",
+      "resourceTypes": ["media", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 7,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        { "header": "Referer", "operation": "set", "value": "https://www.tiktok.com/" },
+        { "header": "Origin", "operation": "set", "value": "https://www.tiktok.com" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||tiktokv.com^",
+      "resourceTypes": ["media", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 8,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        { "header": "Referer", "operation": "set", "value": "https://www.twitch.tv/" },
+        { "header": "Origin", "operation": "set", "value": "https://www.twitch.tv" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||cloudfront.net^",
+      "resourceTypes": ["media", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 9,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        { "header": "Referer", "operation": "set", "value": "https://www.bilibili.com/" },
+        { "header": "Origin", "operation": "set", "value": "https://www.bilibili.com" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||bilivideo.com^",
+      "resourceTypes": ["media", "xmlhttprequest", "other"]
+    }
+  },
+  {
+    "id": 10,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        { "header": "Referer", "operation": "set", "value": "https://www.youtube.com/" },
+        { "header": "Origin", "operation": "set", "value": "https://www.youtube.com" }
+      ]
+    },
+    "condition": {
+      "urlFilter": "||googlevideo.com^",
+      "resourceTypes": ["media", "xmlhttprequest", "other"]
+    }
+  }
+]

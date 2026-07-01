@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GrabIt — Settings</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body data-theme="auto">
+  <div class="page">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">GrabIt</span>
+          <span class="brand-tag">Settings</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="#general" class="nav-item active" data-section="general">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+          General
+        </a>
+        <a href="#sites" class="nav-item" data-section="sites">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+          Sites
+        </a>
+        <a href="#downloads" class="nav-item" data-section="downloads">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Downloads
+        </a>
+        <a href="#overlay" class="nav-item" data-section="overlay">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+          Overlay
+        </a>
+        <a href="#advanced" class="nav-item" data-section="advanced">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Advanced
+        </a>
+        <a href="#about" class="nav-item" data-section="about">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          About
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <span class="version" id="version">v1.0.0</span>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <header class="topbar">
+        <h1 id="page-title">General</h1>
+        <div class="topbar-actions">
+          <span class="sync-indicator" id="sync-indicator" hidden>
+            <span class="dot"></span> Syncing…
+          </span>
+          <button class="btn-primary" id="open-popup-hint" title="Tip: open GrabIt from the toolbar on any supported site">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/></svg>
+            Open toolbar
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- General -->
+        <section id="section-general" class="section active">
+          <div class="card">
+            <h2>Appearance</h2>
+            <div class="field-row">
+              <div class="field-label">
+                <label>Theme</label>
+                <span class="hint">Auto follows your system preference</span>
+              </div>
+              <div class="segmented" id="theme-segmented" role="radiogroup">
+                <button data-value="auto" class="seg-btn active">Auto</button>
+                <button data-value="light" class="seg-btn">Light</button>
+                <button data-value="dark" class="seg-btn">Dark</button>
+              </div>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <label>Accent color</label>
+                <span class="hint">Used in buttons, badges, and the hover overlay</span>
+              </div>
+              <div class="color-picker" id="color-picker">
+                <button class="color-swatch" data-color="#6366f1" style="background:#6366f1" aria-label="Indigo"></button>
+                <button class="color-swatch" data-color="#ec4899" style="background:#ec4899" aria-label="Pink"></button>
+                <button class="color-swatch" data-color="#f43f5e" style="background:#f43f5e" aria-label="Rose"></button>
+                <button class="color-swatch" data-color="#f97316" style="background:#f97316" aria-label="Orange"></button>
+                <button class="color-swatch" data-color="#10b981" style="background:#10b981" aria-label="Emerald"></button>
+                <button class="color-swatch" data-color="#06b6d4" style="background:#06b6d4" aria-label="Cyan"></button>
+                <button class="color-swatch" data-color="#3b82f6" style="background:#3b82f6" aria-label="Blue"></button>
+                <button class="color-swatch" data-color="#8b5cf6" style="background:#8b5cf6" aria-label="Violet"></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Default quality</h2>
+            <div class="field-row">
+              <div class="field-label">
+                <label>Default download quality</label>
+                <span class="hint">Used when clicking a media card directly. Per-variant selection in popup overrides this.</span>
+              </div>
+              <select id="default-quality" class="select">
+                <option value="auto">Auto (1080p or best available)</option>
+                <option value="highest">Highest</option>
+                <option value="1080p">1080p</option>
+                <option value="720p">720p</option>
+                <option value="480p">480p</option>
+                <option value="360p">360p</option>
+                <option value="audio">Audio only</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <!-- Sites -->
+        <section id="section-sites" class="section">
+          <div class="card">
+            <h2>Enabled sites</h2>
+            <p class="card-desc">Toggle which sites GrabIt will scan and show overlay on. Disabled sites are completely ignored.</p>
+            <div class="site-toggles" id="site-toggles"></div>
+          </div>
+        </section>
+
+        <!-- Downloads -->
+        <section id="section-downloads" class="section">
+          <div class="card">
+            <h2>Download folder</h2>
+            <div class="field-row">
+              <div class="field-label">
+                <label>Subfolder under Chrome Downloads</label>
+                <span class="hint">Leave empty to save in the root Downloads folder</span>
+              </div>
+              <input type="text" id="download-folder" class="input" placeholder="GrabIt" />
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <label>Filename template</label>
+                <span class="hint">Variables: {site} {title} {quality} {ext} {author} {date}</span>
+              </div>
+              <input type="text" id="filename-template" class="input" placeholder="{site}_{title}_{quality}.{ext}" />
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Notifications</h2>
+            <label class="toggle-row">
+              <span>
+                <span class="toggle-label">Notify on completion</span>
+                <span class="toggle-hint">Show a desktop notification when a download finishes</span>
+              </span>
+              <input type="checkbox" id="notify-complete" class="toggle" />
+            </label>
+            <label class="toggle-row">
+              <span>
+                <span class="toggle-label">Notify on errors</span>
+                <span class="toggle-hint">Show a notification when a download fails or falls back to opening in a tab</span>
+              </span>
+              <input type="checkbox" id="notify-error" class="toggle" />
+            </label>
+          </div>
+
+          <div class="card">
+            <h2>Recent downloads</h2>
+            <p class="card-desc">Manage the recent downloads list shown in the popup.</p>
+            <div class="recent-manage">
+              <button class="btn-secondary" id="clear-recent-btn">Clear recent list</button>
+              <span class="hint" id="recent-count">0 items</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Overlay -->
+        <section id="section-overlay" class="section">
+          <div class="card">
+            <h2>Hover overlay</h2>
+            <p class="card-desc">A floating "GrabIt" button appears on supported sites for one-click downloads.</p>
+            <label class="toggle-row">
+              <span>
+                <span class="toggle-label">Show hover overlay</span>
+                <span class="toggle-hint">Display the floating button on supported sites</span>
+              </span>
+              <input type="checkbox" id="show-overlay" class="toggle" />
+            </label>
+
+            <div class="field-row">
+              <div class="field-label">
+                <label>Position</label>
+                <span class="hint">Where the overlay button appears on the page</span>
+              </div>
+              <select id="overlay-position" class="select">
+                <option value="bottom-right">Bottom right</option>
+                <option value="bottom-left">Bottom left</option>
+                <option value="top-right">Top right</option>
+                <option value="top-left">Top left</option>
+              </select>
+            </div>
+
+            <div class="field-row">
+              <div class="field-label">
+                <label>Opacity</label>
+                <span class="hint" id="opacity-value">95%</span>
+              </div>
+              <input type="range" id="overlay-opacity" min="50" max="100" value="95" class="range" />
+            </div>
+          </div>
+        </section>
+
+        <!-- Advanced -->
+        <section id="section-advanced" class="section">
+          <div class="card">
+            <h2>Restriction bypass</h2>
+            <p class="card-desc">Many CDNs require a Referer/Origin header from the original site. GrabIt uses declarativeNetRequest rules to inject these on the fly.</p>
+            <label class="toggle-row">
+              <span>
+                <span class="toggle-label">Bypass Referer/Origin restrictions</span>
+                <span class="toggle-hint">Recommended. Disable only if you experience DNR policy conflicts.</span>
+              </span>
+              <input type="checkbox" id="bypass-referer" class="toggle" />
+            </label>
+          </div>
+
+          <div class="card">
+            <h2>Concurrency</h2>
+            <div class="field-row">
+              <div class="field-label">
+                <label>Max parallel downloads</label>
+                <span class="hint" id="parallel-value">3</span>
+              </div>
+              <input type="range" id="max-parallel" min="1" max="10" value="3" class="range" />
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>Diagnostics</h2>
+            <label class="toggle-row">
+              <span>
+                <span class="toggle-label">Enable debug logging</span>
+                <span class="toggle-hint">Verbose logs in the service worker DevTools console. Useful when reporting bugs.</span>
+              </span>
+              <input type="checkbox" id="debug-logging" class="toggle" />
+            </label>
+            <div class="actions-row">
+              <button class="btn-secondary" id="test-scan-btn">Test scan active tab</button>
+              <button class="btn-secondary" id="reload-bg-btn">Reload service worker</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- About -->
+        <section id="section-about" class="section">
+          <div class="card about-card">
+            <div class="about-logo">
+              <div class="brand-mark large">
+                <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3v12"/><path d="m7 12 5 5 5-5"/><path d="M5 21h14"/>
+                </svg>
+              </div>
+              <div>
+                <h2>GrabIt</h2>
+                <p class="about-version">Version <span id="about-version">1.0.0</span></p>
+              </div>
+            </div>
+            <p class="about-desc">
+              GrabIt is a privacy-respecting Chrome extension that lets you download videos, images,
+              and audio from YouTube, Twitter/X, Instagram, TikTok, Reddit, Facebook, Twitch, and Bilibili.
+              All processing happens locally in your browser — no third-party servers, no telemetry.
+            </p>
+            <div class="about-links">
+              <a href="https://github.com/Exon101/grabit-extension" target="_blank" rel="noreferrer">Source on GitHub</a>
+              <a href="https://github.com/Exon101/grabit-extension/issues" target="_blank" rel="noreferrer">Report an issue</a>
+              <a href="#" id="open-extensions-page">Manage extension</a>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>

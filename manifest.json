@@ -1,0 +1,112 @@
+{
+  "manifest_version": 3,
+  "name": "GrabIt — Universal Media Grabber",
+  "version": "1.0.0",
+  "description": "Grab and download videos, images, and media from YouTube, Twitter/X, Instagram, TikTok, Reddit, Facebook, Twitch, and Bilibili with a polished, fast, privacy-respecting UI.",
+  "author": "Exon101",
+  "homepage_url": "https://github.com/Exon101/grabit-extension",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "GrabIt — detect downloadable media on this page",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background/background.js",
+    "type": "module"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs",
+    "contextMenus",
+    "notifications",
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback"
+  ],
+  "host_permissions": [
+    "https://*.youtube.com/*",
+    "https://*.youtu.be/*",
+    "https://*.twitter.com/*",
+    "https://*.x.com/*",
+    "https://*.instagram.com/*",
+    "https://*.tiktok.com/*",
+    "https://*.reddit.com/*",
+    "https://*.facebook.com/*",
+    "https://*.twitch.tv/*",
+    "https://*.bilibili.com/*",
+    "https://*.hbomax.com/*",
+    "https://*.disneyplus.com/*",
+    "https://*.netflix.com/*",
+    "https://*.vimeo.com/*",
+    "https://*.streamable.com/*",
+    "https://*.dailymotion.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.youtube.com/*",
+        "https://*.youtu.be/*",
+        "https://*.twitter.com/*",
+        "https://*.x.com/*",
+        "https://*.instagram.com/*",
+        "https://*.tiktok.com/*",
+        "https://*.reddit.com/*",
+        "https://*.facebook.com/*",
+        "https://*.twitch.tv/*",
+        "https://*.bilibili.com/*"
+      ],
+      "js": ["content/content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset_referer",
+        "enabled": true,
+        "path": "background/dnr_rules.json"
+      }
+    ]
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content/hover-overlay.css",
+        "lib/yt-bridge.js",
+        "icons/icon16.png",
+        "icons/icon48.png",
+        "icons/icon128.png"
+      ],
+      "matches": [
+        "https://*.youtube.com/*",
+        "https://*.twitter.com/*",
+        "https://*.x.com/*",
+        "https://*.instagram.com/*",
+        "https://*.tiktok.com/*",
+        "https://*.reddit.com/*",
+        "https://*.facebook.com/*",
+        "https://*.twitch.tv/*",
+        "https://*.bilibili.com/*"
+      ]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline';"
+  }
+}

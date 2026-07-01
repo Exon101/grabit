@@ -1,0 +1,19 @@
+/* GrabIt hover overlay CSS — note that the overlay uses Shadow DOM,
+ * so these styles only apply to the *host* element (positioning / sizing).
+ * The bulk of styling lives inline in content/hover-overlay.js inside
+ * the shadow root. We keep this file for legacy / non-shadow fallback
+ * and to satisfy manifest.web_accessible_resources listing.
+ */
+
+#grabit-overlay-root {
+  position: fixed !important;
+  z-index: 2147483646 !important;
+  pointer-events: none; /* the button inside re-enables pointer events */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #grabit-overlay-root * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

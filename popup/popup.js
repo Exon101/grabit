@@ -1,0 +1,382 @@
+/**
+ * popup/popup.js — GrabIt popup controller
+ *
+ * Lifecycle:
+ *   1) On DOMContentLoaded: query active tab, fetch favicon, render tab card
+ *   2) Send 'scanActiveTab' message to background; render results
+ *   3) On variant click: send 'download' message; show toast
+ *   4) Subscribe to chrome.runtime.onMessage for 'recentUpdated' updates
+ *   5) Theme toggle persists to chrome.storage.sync
+ */
+
+(function () {
+  'use strict';
+
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+  /* ---------------------------------------------------------------- *
+   * State
+   * ---------------------------------------------------------------- */
+  let settings = null;
+  let scanResult = null;
+
+  /* ---------------------------------------------------------------- *
+   * IPC helpers
+   * ---------------------------------------------------------------- */
+  function send(type, payload) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({ type, ...payload }, (resp) => {
+        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+        if (!resp) return reject(new Error('No response'));
+        if (!resp.ok) return reject(new Error(resp.error || 'Unknown error'));
+        resolve(resp.data);
+      });
+    });
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Theme
+   * ---------------------------------------------------------------- */
+  function applyTheme(mode) {
+    document.body.setAttribute('data-theme', mode);
+  }
+
+  function resolveTheme(setting) {
+    if (setting === 'dark' || setting === 'light') return setting;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+
+  function cycleTheme() {
+    const order = ['auto', 'light', 'dark'];
+    const next = order[(order.indexOf(settings.theme || 'auto') + 1) % order.length];
+    settings.theme = next;
+    applyTheme(resolveTheme(next));
+    saveSettings({ theme: next });
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Tab info
+   * ---------------------------------------------------------------- */
+  async function renderTabCard() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) return null;
+
+    $('#tab-card').hidden = false;
+    $('#tab-title').textContent = tab.title || 'Untitled';
+    try {
+      const host = new URL(tab.url).hostname;
+      $('#tab-host').textContent = host;
+      $('#tab-favicon').style.backgroundImage = `url("https://www.google.com/s2/favicons?domain=${host}&sz=64")`;
+    } catch {
+      $('#tab-host').textContent = '';
+    }
+    return tab;
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Scan
+   * ---------------------------------------------------------------- */
+  async function scanAndRender() {
+    try {
+      $('#loading-skeleton').hidden = false;
+      $('#media-list').hidden = true;
+      $('#empty-state').hidden = true;
+      $('#brand-status').textContent = 'Detecting media…';
+
+      const result = await send('scanActiveTab');
+      scanResult = result;
+      const media = result?.media || [];
+
+      $('#loading-skeleton').hidden = true;
+
+      if (!media.length) {
+        showEmpty();
+        $('#brand-status').textContent = 'No media found';
+        return;
+      }
+
+      $('#brand-status').textContent = `${media.length} item${media.length === 1 ? '' : 's'} found`;
+      renderMediaList(media);
+      $('#media-list').hidden = false;
+    } catch (e) {
+      console.error('[GrabIt popup] scan failed', e);
+      $('#loading-skeleton').hidden = true;
+      showEmpty();
+      $('#brand-status').textContent = 'Scan failed';
+      showToast(e.message, 'error');
+    }
+  }
+
+  function showEmpty() {
+    $('#empty-state').hidden = false;
+    renderSupportedSites();
+  }
+
+  async function renderSupportedSites() {
+    try {
+      const extractors = await send('listExtractors');
+      $('#supported-sites').innerHTML = extractors.map(e =>
+        `<span class="site-chip">${e.name}</span>`
+      ).join('');
+    } catch {
+      // ignore
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Media list render
+   * ---------------------------------------------------------------- */
+  function renderMediaList(media) {
+    const list = $('#media-list');
+    list.innerHTML = '';
+
+    for (const m of media) {
+      const card = document.createElement('div');
+      card.className = 'media-card';
+
+      // Header
+      const head = document.createElement('div');
+      head.className = 'media-head';
+
+      const thumb = document.createElement('div');
+      thumb.className = 'media-thumb';
+      if (m.thumbnail) thumb.style.backgroundImage = `url("${m.thumbnail}")`;
+      head.appendChild(thumb);
+
+      const meta = document.createElement('div');
+      meta.className = 'media-meta';
+      const title = document.createElement('div');
+      title.className = 'media-title';
+      title.textContent = m.title || 'Untitled media';
+      meta.appendChild(title);
+
+      if (m.author) {
+        const author = document.createElement('div');
+        author.className = 'media-author';
+        author.textContent = m.author;
+        meta.appendChild(author);
+      }
+      if (m.durationSec) {
+        const dur = document.createElement('div');
+        dur.className = 'media-duration';
+        dur.textContent = formatDuration(m.durationSec);
+        meta.appendChild(dur);
+      }
+      head.appendChild(meta);
+      card.appendChild(head);
+
+      // Error block
+      if (m.error) {
+        const err = document.createElement('div');
+        err.className = 'media-error';
+        err.textContent = m.error;
+        card.appendChild(err);
+      }
+
+      // Variants grid
+      if (m.variants && m.variants.length) {
+        const grid = document.createElement('div');
+        grid.className = 'variant-grid';
+
+        // Show top 6 variants (sorted by quality from extractor)
+        const shown = m.variants.slice(0, 6);
+        for (const v of shown) {
+          const btn = document.createElement('button');
+          btn.className = 'variant-btn';
+          btn.dataset.url = v.url;
+          btn.innerHTML = `
+            <span class="v-quality">${v.quality || 'source'}</span>
+            <span class="v-meta">
+              <span class="v-badge ${v.audio ? 'audio' : ''}">${v.audio ? 'audio' : (v.ext || 'mp4').toUpperCase()}</span>
+              ${v.height ? `· ${v.height}p` : ''}
+            </span>
+          `;
+          btn.addEventListener('click', () => handleDownload(btn, v, m));
+          grid.appendChild(btn);
+        }
+
+        // "+N more" if more than 6
+        if (m.variants.length > 6) {
+          const more = document.createElement('button');
+          more.className = 'variant-btn';
+          more.style.gridColumn = '1 / -1';
+          more.style.alignItems = 'center';
+          more.style.justifyContent = 'center';
+          more.innerHTML = `<span class="v-quality" style="font-size:11px;font-weight:600;color:var(--fg-muted)">+${m.variants.length - 6} more variants</span>`;
+          more.addEventListener('click', () => {
+            // Show all
+            grid.innerHTML = '';
+            for (const v of m.variants) {
+              const btn = document.createElement('button');
+              btn.className = 'variant-btn';
+              btn.innerHTML = `
+                <span class="v-quality">${v.quality || 'source'}</span>
+                <span class="v-meta">
+                  <span class="v-badge ${v.audio ? 'audio' : ''}">${v.audio ? 'audio' : (v.ext || 'mp4').toUpperCase()}</span>
+                  ${v.height ? `· ${v.height}p` : ''}
+                </span>
+              `;
+              btn.addEventListener('click', () => handleDownload(btn, v, m));
+              grid.appendChild(btn);
+            }
+          });
+          grid.appendChild(more);
+        }
+
+        card.appendChild(grid);
+      }
+
+      list.appendChild(card);
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Download
+   * ---------------------------------------------------------------- */
+  async function handleDownload(btn, variant, media) {
+    btn.classList.add('downloading');
+    const original = btn.innerHTML;
+    btn.innerHTML = `<span class="v-spinner"></span><span class="v-meta">starting…</span>`;
+
+    try {
+      const resp = await send('download', {
+        payload: {
+          url: variant.url,
+          filename: media.title,
+          mediaId: media.id,
+          quality: variant.quality,
+          needsReferer: variant.needsReferer,
+          mime: variant.mime,
+          meta: { ...media.meta, title: media.title, author: media.author },
+        },
+      });
+      const tierLabel = ['', 'direct', 'fetch+blob', 'open in tab'][resp.tier || 1];
+      showToast(`Download started (${tierLabel})`, 'success');
+      // Refresh recent
+      loadRecent();
+    } catch (e) {
+      showToast(`Failed: ${e.message}`, 'error');
+    } finally {
+      setTimeout(() => {
+        btn.classList.remove('downloading');
+        btn.innerHTML = original;
+      }, 1500);
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Recent downloads
+   * ---------------------------------------------------------------- */
+  async function loadRecent() {
+    try {
+      const list = await send('recentDownloads', { limit: 10 });
+      if (!list || !list.length) {
+        $('#recent-section').hidden = true;
+        return;
+      }
+      $('#recent-section').hidden = false;
+      const ul = $('#recent-list');
+      ul.innerHTML = list.map(item => `
+        <div class="recent-item">
+          <span class="r-status ${item.status}"></span>
+          <span class="r-name" title="${escapeHtml(item.filename)}">${escapeHtml(item.filename)}</span>
+          <span class="r-time">${formatTime(item.startedAt)}</span>
+        </div>
+      `).join('');
+    } catch (e) {
+      console.warn('[GrabIt popup] loadRecent failed', e);
+    }
+  }
+
+  async function clearRecent() {
+    try {
+      await send('clearRecent');
+      loadRecent();
+      showToast('Recent cleared', 'success');
+    } catch (e) {
+      showToast('Failed to clear', 'error');
+    }
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Settings
+   * ---------------------------------------------------------------- */
+  async function loadSettings() {
+    settings = await send('getSettings');
+    applyTheme(resolveTheme(settings.theme || 'auto'));
+    if (settings.accentColor) {
+      document.documentElement.style.setProperty('--accent', settings.accentColor);
+    }
+  }
+  async function saveSettings(patch) {
+    settings = { ...settings, ...patch };
+    await send('saveSettings', { patch });
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Helpers
+   * ---------------------------------------------------------------- */
+  function showToast(msg, type = '') {
+    const t = $('#toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + type;
+    t.hidden = false;
+    setTimeout(() => {
+      t.className = 'toast ' + type;
+      setTimeout(() => { t.hidden = true; }, 250);
+    }, 2500);
+  }
+
+  function escapeHtml(s) {
+    return String(s || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function formatDuration(sec) {
+    if (!sec) return '';
+    const s = Math.floor(sec % 60).toString().padStart(2, '0');
+    const m = Math.floor((sec / 60) % 60);
+    const h = Math.floor(sec / 3600);
+    return h > 0 ? `${h}:${m.toString().padStart(2, '0')}:${s}` : `${m}:${s}`;
+  }
+
+  function formatTime(ts) {
+    if (!ts) return '';
+    const diff = Date.now() - ts;
+    if (diff < 60_000) return 'just now';
+    if (diff < 3600_000) return `${Math.floor(diff / 60_000)}m ago`;
+    if (diff < 86400_000) return `${Math.floor(diff / 3600_000)}h ago`;
+    return new Date(ts).toLocaleDateString();
+  }
+
+  /* ---------------------------------------------------------------- *
+   * Live updates
+   * ---------------------------------------------------------------- */
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg?.type === 'recentUpdated') {
+      loadRecent();
+    }
+  });
+
+  /* ---------------------------------------------------------------- *
+   * Boot
+   * ---------------------------------------------------------------- */
+  document.addEventListener('DOMContentLoaded', async () => {
+    // Wire up controls
+    $('#theme-toggle').addEventListener('click', cycleTheme);
+    $('#open-options').addEventListener('click', () => chrome.runtime.openOptionsPage());
+    $('#clear-recent').addEventListener('click', clearRecent);
+
+    // Show version
+    const manifest = chrome.runtime.getManifest();
+    $('#version').textContent = `v${manifest.version}`;
+
+    // Bootstrap
+    await loadSettings();
+    await renderTabCard();
+    await loadRecent();
+    await scanAndRender();
+  });
+})();
