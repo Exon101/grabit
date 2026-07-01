@@ -109,6 +109,10 @@
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Settings
       </button>
+      <button class="footer-btn" id="debug-btn" title="Show diagnostic info">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Debug
+      </button>
       <span class="version" id="version">v1.0.0</span>
     </footer>
   </div>
@@ -152,6 +156,22 @@
       <div class="modal-foot">
         <button class="btn-secondary" id="instr-show-download">Show download in folder</button>
         <button class="btn-primary" id="instr-open-extensions">Open Extensions tab</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Debug info -->
+  <div class="modal" id="debug-modal" hidden>
+    <div class="modal-backdrop" id="debug-backdrop"></div>
+    <div class="modal-card" style="max-width: 360px;">
+      <div class="modal-head">
+        <h3>Debug Info</h3>
+        <button class="modal-close" id="debug-close" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body" id="debug-body" style="font-family: monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all;">Loading...</div>
+      <div class="modal-foot">
+        <button class="btn-secondary" id="debug-copy" style="font-size: 11px;">Copy</button>
+        <button class="btn-primary" id="debug-rescan" style="font-size: 11px;">Re-scan</button>
       </div>
     </div>
   </div>

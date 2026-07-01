@@ -168,13 +168,19 @@ jobs:
               --notes "$NOTES"
             echo "Created 'latest' release with v${CURRENT_VERSION}."
           else
-            # Update release notes, then clobber (overwrite) the asset —
-            # this is the "delete old zip" step. --clobber replaces the
-            # existing asset of the same name atomically.
+            # Delete ALL existing assets first (so old-named zips don't linger)
+            echo "Cleaning up old assets from 'latest' release..."
+            gh release view latest -R "$REPO" --json assets -q '.assets[].name' | while read -r old_asset; do
+              echo "  Deleting old asset: $old_asset"
+              gh release delete-asset latest "$old_asset" -R "$REPO" --yes || true
+            done
+
+            # Update release notes
             gh release edit latest \
               -R "$REPO" \
               --notes "$NOTES"
 
+            # Upload the new zip
             gh release upload latest grabit.zip --clobber
             echo "Replaced 'latest' release asset with v${CURRENT_VERSION}."
           fi

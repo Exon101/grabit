@@ -538,6 +538,131 @@
   }
 
   /* ---------------------------------------------------------------- *
+   * Debug diagnostics
+   * ---------------------------------------------------------------- */
+  async function showDebugInfo() {
+    const modal = $('#debug-modal');
+    const body = $('#debug-body');
+    body.textContent = 'Collecting debug info...';
+    modal.hidden = false;
+
+    try {
+      const manifest = chrome.runtime.getManifest();
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const url = tab?.url || 'unknown';
+      let host = 'unknown', siteKey = null;
+      try {
+        host = new URL(url).hostname;
+        siteKey = await send('hasPermission', { url }).then(r => r.siteKey);
+      } catch {}
+
+      // Check permission
+      let permGranted = false;
+      if (siteKey) {
+        try {
+          const r = await send('hasSitePermission', { siteKey });
+          permGranted = r.granted;
+        } catch {}
+      }
+
+      // Check scan status
+      let scanStatus = 'not scanned';
+      let mediaCount = 0;
+      let scanError = null;
+      try {
+        const result = await send('scanActiveTab');
+        scanStatus = result?.status || 'unknown';
+        mediaCount = result?.media?.length || 0;
+        if (result?.media?.[0]?.error) scanError = result.media[0].error;
+      } catch (e) {
+        scanError = e.message;
+      }
+
+      // Check settings
+      let settingsSummary = 'unknown';
+      try {
+        const s = await send('getSettings');
+        settingsSummary = `theme=${s.theme}, overlay=${s.showHoverOverlay}, sites=${Object.entries(s.sites || {}).filter(([_,v]) => v).map(([k]) => k).join(',')}`;
+      } catch {}
+
+      // Check update status
+      let updateInfo = 'unknown';
+      try {
+        const u = await send('getUpdateStatus');
+        updateInfo = `current=v${manifest.version}, latest=${u.latestVersion ? 'v' + u.latestVersion : '?'}, hasUpdate=${u.hasUpdate}, error=${u.error || 'none'}`;
+      } catch {}
+
+      const info = [
+        `=== GrabIt Debug Info ===`,
+        `Time: ${new Date().toISOString()}`,
+        ``,
+        `=== Extension ===`,
+        `Version: v${manifest.version}`,
+        `Manifest: v${manifest.manifest_version}`,
+        `ID: ${chrome.runtime.id}`,
+        ``,
+        `=== Active Tab ===`,
+        `URL: ${url}`,
+        `Host: ${host}`,
+        `Site key: ${siteKey || 'none (unsupported site)'}`,
+        ``,
+        `=== Permission ===`,
+        `Granted: ${permGranted}`,
+        siteKey && !permGranted ? `→ Click "Enable for this site" in the popup` : '',
+        ``,
+        `=== Scan Result ===`,
+        `Status: ${scanStatus}`,
+        `Media found: ${mediaCount}`,
+        scanError ? `Error: ${scanError}` : '',
+        ``,
+        `=== Settings ===`,
+        settingsSummary,
+        ``,
+        `=== Update ===`,
+        updateInfo,
+        ``,
+        `=== Troubleshooting ===`,
+        `1. If permission=false: click "Enable for this site"`,
+        `2. If status=needs_permission: grant permission, then click "Re-scan"`,
+        `3. If media=0 + no error: site may not have a video, or extractor didn't find any`,
+        `4. If media=0 + error: read the error message above`,
+        `5. If status=unknown: background script may have crashed — reload extension`,
+        ``,
+        `Copy this info and paste it in a GitHub issue:`,
+        `https://github.com/Exon101/grabit/issues`,
+      ].filter(Boolean).join('\n');
+
+      body.textContent = info;
+    } catch (e) {
+      body.textContent = `Error collecting debug info: ${e.message}\n\nStack: ${e.stack || ''}`;
+    }
+
+    // Wire buttons
+    $('#debug-close').onclick = () => { modal.hidden = true; };
+    $('#debug-backdrop').onclick = () => { modal.hidden = true; };
+    $('#debug-copy').onclick = () => {
+      navigator.clipboard.writeText(body.textContent).then(() => {
+        showToast('Copied to clipboard', 'success');
+      }).catch(() => {
+        showToast('Copy failed', 'error');
+      });
+    };
+    $('#debug-rescan').onclick = async () => {
+      body.textContent = 'Re-scanning...';
+      try {
+        // Clear cache first
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab) await send('clearScanCache', { tabId: tab.id });
+        // Re-run scan
+        await scanAndRender();
+        modal.hidden = true;
+      } catch (e) {
+        body.textContent = `Re-scan failed: ${e.message}`;
+      }
+    };
+  }
+
+  /* ---------------------------------------------------------------- *
    * Boot
    * ---------------------------------------------------------------- */
   document.addEventListener('DOMContentLoaded', async () => {
@@ -545,6 +670,7 @@
     $('#theme-toggle').addEventListener('click', cycleTheme);
     $('#open-options').addEventListener('click', () => chrome.runtime.openOptionsPage());
     $('#clear-recent').addEventListener('click', clearRecent);
+    $('#debug-btn').addEventListener('click', showDebugInfo);
 
     // Show version
     const manifest = chrome.runtime.getManifest();
