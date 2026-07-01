@@ -44,7 +44,7 @@ export const facebookExtractor = {
           author,
           thumbnail: thumb,
           variants: [],
-          error: 'No video URL found — Facebook may require login or the video is private/removed.',
+          error: 'No video URL found. Facebook requires login for most videos. Make sure you are logged in to Facebook in this browser, then refresh the page and try again. If you are already logged in, the video may be private, age-restricted, or Facebook changed their page structure.',
           meta: { site: 'facebook', videoId },
         }];
       }
@@ -80,8 +80,13 @@ async function fetchPage(url) {
     credentials: 'include',
     redirect: 'follow',
     headers: {
+      'Accept': 'text/html,application/xhtml+xml',
       'Accept-Language': 'en-US,en;q=0.9',
-      'Sec-Fetch-Site': 'same-origin',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-User': '?1',
+      'Upgrade-Insecure-Requests': '1',
     },
   });
   if (!res.ok) throw new Error(`Facebook fetch ${res.status}`);
@@ -92,10 +97,14 @@ function scrapeVideoVariants(html) {
   const variants = [];
   const seen = new Set();
 
+  // Decode Facebook's escaped JSON strings (\u002F → /, \\" → ", etc.)
+  const decode = (s) => s.replace(/\\u002F/g, '/').replace(/\\u0026/g, '&').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+
   // Look for playable_url(_quality_hd) inside the embedded JSON
+  // Facebook escapes URLs in their JSON: "playable_url":"https:\\u002F\\u002F..."
   const hdMatch = html.match(/"playable_url_quality_hd"\s*:\s*"([^"]+)"/);
   if (hdMatch) {
-    const url = deobfuscateUrl(JSON.parse(`"${hdMatch[1]}"`));
+    const url = deobfuscateUrl(decode(hdMatch[1]));
     if (url && !seen.has(url)) {
       seen.add(url);
       variants.push({ url, quality: 'HD', height: 1080 });
@@ -104,7 +113,7 @@ function scrapeVideoVariants(html) {
 
   const sdMatch = html.match(/"playable_url"\s*:\s*"([^"]+)"/);
   if (sdMatch) {
-    const url = deobfuscateUrl(JSON.parse(`"${sdMatch[1]}"`));
+    const url = deobfuscateUrl(decode(sdMatch[1]));
     if (url && !seen.has(url)) {
       seen.add(url);
       variants.push({ url, quality: 'SD', height: 720 });
@@ -114,10 +123,19 @@ function scrapeVideoVariants(html) {
   // Look for browser_native_hd_url / browser_native_sd_url
   const nativeHd = html.match(/"browser_native_hd_url"\s*:\s*"([^"]+)"/);
   if (nativeHd) {
-    const url = deobfuscateUrl(JSON.parse(`"${nativeHd[1]}"`));
+    const url = deobfuscateUrl(decode(nativeHd[1]));
     if (url && !seen.has(url)) {
       seen.add(url);
       variants.push({ url, quality: 'HD Native', height: 1080 });
+    }
+  }
+
+  const nativeSd = html.match(/"browser_native_sd_url"\s*:\s*"([^"]+)"/);
+  if (nativeSd) {
+    const url = deobfuscateUrl(decode(nativeSd[1]));
+    if (url && !seen.has(url)) {
+      seen.add(url);
+      variants.push({ url, quality: 'SD Native', height: 720 });
     }
   }
 
@@ -128,6 +146,18 @@ function scrapeVideoVariants(html) {
     while ((m = ogRe.exec(html))) {
       const url = deobfuscateUrl(m[1]);
       if (seen.has(url)) continue;
+      seen.add(url);
+      variants.push({ url, quality: 'source', height: 0 });
+    }
+  }
+
+  // Last resort: look for any video URL pattern in the HTML
+  if (!variants.length) {
+    const videoUrlRe = /https?:\\u002F\\u002F[^"'\s]+\.mp4[^"'\s]*/gi;
+    let m;
+    while ((m = videoUrlRe.exec(html))) {
+      const url = deobfuscateUrl(decode(m[0]));
+      if (seen.has(url) || url.includes('staticxx')) continue;
       seen.add(url);
       variants.push({ url, quality: 'source', height: 0 });
     }

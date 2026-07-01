@@ -146,10 +146,13 @@ async function handleMessage(msg, sender) {
 
     case 'hasPermission':
       // Returns { granted: boolean, siteKey: string|null }
-      return {
-        granted: msg.url ? await hasHostPermission(msg.url) : false,
-        siteKey: msg.url ? siteKeyFromUrl(msg.url) : null,
-      };
+      {
+        const sk = msg.url ? siteKeyFromUrl(msg.url) : null;
+        return {
+          granted: sk ? await hasSitePermission(sk) : false,
+          siteKey: sk,
+        };
+      }
 
     case 'hasSitePermission':
       return { granted: await hasSitePermission(msg.siteKey) };
@@ -190,6 +193,10 @@ async function handleMessage(msg, sender) {
       }
       return { scheduled: msg.enabled };
 
+    case 'clearScanCache':
+      scanCache.delete(msg.tabId);
+      return { ok: true };
+
     default:
       throw new Error(`Unknown message type: ${msg?.type}`);
   }
@@ -218,7 +225,9 @@ async function scanTab(tabId) {
   // clicked from the popup's user-gesture context).
   const siteKey = siteKeyFromUrl(tab.url);
   if (siteKey) {
-    const hasPerm = await hasHostPermission(tab.url);
+    // Use hasSitePermission (checks all patterns for the site) instead of
+    // hasHostPermission (passes full URL to contains(), which is unreliable).
+    const hasPerm = await hasSitePermission(siteKey);
     if (!hasPerm) {
       logger.info(`No host permission for ${tab.url} (site ${siteKey}) — returning needs_permission`);
       return {

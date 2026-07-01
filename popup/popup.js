@@ -143,6 +143,11 @@
         });
         if (granted) {
           showToast('Permission granted — scanning…', 'success');
+          // Clear scan cache so the background re-scans with permission now granted
+          try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            if (tab) await send('clearScanCache', { tabId: tab.id });
+          } catch { /* ignore */ }
           // Re-scan after granting
           setTimeout(scanAndRender, 200);
         } else {

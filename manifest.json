@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "GrabIt — Universal Media Grabber",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Grab and download videos, images, and media from YouTube, Twitter/X, Instagram, TikTok, Reddit, Facebook, Twitch, and Bilibili with a polished, fast, privacy-respecting UI.",
   "author": "Exon101",
-  "homepage_url": "https://exon101.github.io/grabit-extension/",
+  "homepage_url": "https://exon101.github.io/grabit/",
   "minimum_chrome_version": "116",
   "icons": {
     "16": "icons/icon16.png",

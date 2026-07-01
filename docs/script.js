@@ -81,7 +81,7 @@
     const sizeEl = document.getElementById('download-size');
     if (!sizeEl) return;
     try {
-      const res = await fetch('https://api.github.com/repos/Exon101/grabit-extension/releases/latest');
+      const res = await fetch('https://api.github.com/repos/Exon101/grabit/releases/latest');
       if (!res.ok) return;
       const data = await res.json();
       const asset = (data.assets || []).find(a => a.name.endsWith('.zip'));

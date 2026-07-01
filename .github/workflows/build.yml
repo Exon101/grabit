@@ -8,13 +8,13 @@ name: Build & Release
 #
 # Release strategy:
 #   - latest                           → rolling prerelease, single asset
-#                                        `grabit-extension.zip`, overwritten
+#                                        `grabit.zip`, overwritten
 #                                        on every commit. Old asset is
 #                                        clobbered (effectively deleted).
 #   - v{N}.x-archive                   → permanent release, created once
 #                                        when major version transitions
 #                                        from N to N+1. Asset is named
-#                                        `grabit-extension-v{full-version}.zip`.
+#                                        `grabit-v{full-version}.zip`.
 #                                        Never modified after creation.
 
 on:
@@ -66,7 +66,7 @@ jobs:
           set -euo pipefail
           # Package the extension. Exclude repo-only files so the zip
           # contains just the runnable extension (manifest.json at root).
-          zip -r grabit-extension.zip . \
+          zip -r grabit.zip . \
             -x '.git/*' \
             -x '.github/*' \
             -x '*.zip' \
@@ -74,10 +74,10 @@ jobs:
             -x '*.DS_Store'
 
           echo "--- zip size ---"
-          ls -lh grabit-extension.zip
+          ls -lh grabit.zip
 
           echo "--- zip contents (first 40 entries) ---"
-          unzip -l grabit-extension.zip | head -40
+          unzip -l grabit.zip | head -40
 
       - name: Archive previous major (only when major version bumped up)
         id: archive
@@ -124,7 +124,7 @@ jobs:
           fi
 
           # Rename to include the previous full version.
-          ARCHIVE_NAME="grabit-extension-v${PREV_VERSION}.zip"
+          ARCHIVE_NAME="grabit-v${PREV_VERSION}.zip"
           cp "$ZIP_FILE" "/tmp/$ARCHIVE_NAME"
 
           gh release create "$ARCHIVE_TAG" "/tmp/$ARCHIVE_NAME" \
@@ -161,7 +161,7 @@ jobs:
 
           if ! gh release view latest -R "$REPO" >/dev/null 2>&1; then
             # First run: create the rolling release.
-            gh release create latest grabit-extension.zip \
+            gh release create latest grabit.zip \
               -R "$REPO" \
               --prerelease \
               --title "GrabIt (latest)" \
@@ -175,7 +175,7 @@ jobs:
               -R "$REPO" \
               --notes "$NOTES"
 
-            gh release upload latest grabit-extension.zip --clobber
+            gh release upload latest grabit.zip --clobber
             echo "Replaced 'latest' release asset with v${CURRENT_VERSION}."
           fi
 
@@ -197,7 +197,7 @@ jobs:
             echo "|---|---|"
             echo "| **Version** | v${CURRENT_VERSION} (major ${CURRENT_MAJOR}) |"
             echo "| **Commit** | [\`${GITHUB_SHA:0:7}\`](${GITHUB_SERVER_URL}/${REPO}/commit/${GITHUB_SHA}) |"
-            echo "| **Latest zip** | [\`grabit-extension.zip\`](${GITHUB_SERVER_URL}/${REPO}/releases/download/latest/grabit-extension.zip) |"
+            echo "| **Latest zip** | [\`grabit.zip\`](${GITHUB_SERVER_URL}/${REPO}/releases/download/latest/grabit.zip) |"
             if [ "$ARCHIVED" = "true" ]; then
               echo "| **Archived** | v${PREV_VERSION} → [\`${ARCHIVE_TAG}\`](${GITHUB_SERVER_URL}/${REPO}/releases/tag/${ARCHIVE_TAG}) |"
             elif [ -n "$PREV_MAJOR" ] && [ "$PREV_MAJOR" != "$CURRENT_MAJOR" ]; then

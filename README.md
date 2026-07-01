@@ -5,9 +5,9 @@
 </p>
 
 <p align="center">
-  <a href="https://exon101.github.io/grabit-extension/">🌐 Landing page</a> ·
-  <a href="https://github.com/Exon101/grabit-extension/releases/latest">📦 Download latest</a> ·
-  <a href="https://github.com/Exon101/grabit-extension/issues">🐛 Report issue</a>
+  <a href="https://exon101.github.io/grabit/">🌐 Landing page</a> ·
+  <a href="https://github.com/Exon101/grabit/releases/latest">📦 Download latest</a> ·
+  <a href="https://github.com/Exon101/grabit/issues">🐛 Report issue</a>
 </p>
 
 A privacy-respecting Chrome extension that lets you download videos, images, and audio
@@ -76,7 +76,7 @@ needed).
 ## Architecture
 
 ```
-grabit-extension/
+grabit/
 ├── manifest.json              MV3 manifest, permissions, DNR ruleset
 ├── background/
 │   ├── background.js          Service worker: IPC, download orchestration, 3-tier fallback
@@ -182,11 +182,11 @@ User clicks toolbar icon
 
 ### From source (developer install)
 
-1. Download the latest `grabit-extension.zip` from [releases](../../releases/latest) (or clone this repo)
+1. Download the latest `grabit.zip` from [releases](../../releases/latest) (or clone this repo)
 2. Unzip it to a permanent folder (Chrome needs it to stay in place)
 3. Open Chrome and navigate to `chrome://extensions/`
 4. Enable **Developer mode** (top-right toggle)
-5. Click **Load unpacked** and select the unzipped `grabit-extension/` folder
+5. Click **Load unpacked** and select the unzipped `grabit/` folder
 6. The GrabIt icon will appear in your toolbar — pin it for easy access
 7. Visit a supported site (e.g. a YouTube video) and click the GrabIt icon
 8. **First time only:** the popup will ask you to grant host permission for that site (no upfront permissions are requested at install time). Click "Enable for this site" — Chrome shows its standard permission prompt. Grant it and the popup will re-scan automatically.
@@ -205,7 +205,7 @@ python scripts/gen_icons.py
 A GitHub Actions workflow (`.github/workflows/build.yml`) runs on every push to `main`:
 
 1. **Builds a fresh zip** of the extension
-2. **Replaces the `latest` release asset** (`grabit-extension.zip`) — the previous zip is clobbered (effectively deleted)
+2. **Replaces the `latest` release asset** (`grabit.zip`) — the previous zip is clobbered (effectively deleted)
 3. **On major version bumps** (e.g. v1.x → v2.x), snapshots the previous `latest` zip into a permanent `v{N}.x-archive` release before replacing it
 
 So users always have:
