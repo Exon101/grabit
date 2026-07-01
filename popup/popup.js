@@ -139,10 +139,13 @@
       btn.disabled = true;
       btn.innerHTML = '<span class="v-spinner"></span> Requesting…';
       try {
-        // Patterns come from the scan response, or we re-derive from siteKey
+        // Pre-compute patterns SYNCHRONOUSLY to preserve the user gesture
+        // (any await before chrome.permissions.request can cause Chrome to
+        // consider the gesture expired and silently reject the request)
         const patterns = scanResult?.patterns?.length
           ? scanResult.patterns
-          : await derivePatterns(siteKey);
+          : [`https://*.${new URL(url).hostname.replace(/^www\./, '')}/*`];
+
         const granted = await new Promise((resolve) => {
           chrome.permissions.request({ origins: patterns }, (ok) => {
             resolve(!!ok);
@@ -678,6 +681,15 @@
         showToast('Copied to clipboard', 'success');
       }).catch(() => {
         showToast('Copy failed', 'error');
+      });
+    };
+    $('#debug-report').onclick = () => {
+      // Copy debug info to clipboard + open GitHub issues page
+      navigator.clipboard.writeText(body.textContent).then(() => {
+        showToast('Debug info copied — paste it in the issue', 'success');
+      }).catch(() => {});
+      chrome.tabs.create({
+        url: 'https://github.com/Exon101/grabit/issues/new?title=Extension%20not%20working&body=' + encodeURIComponent('```\n' + body.textContent + '\n```\n\n**What I expected:** \n\n**What happened instead:** \n'),
       });
     };
     $('#debug-rescan').onclick = async () => {

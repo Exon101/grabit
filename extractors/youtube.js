@@ -42,33 +42,45 @@ export const youtubeExtractor = {
     const videoId = extractVideoId(url);
     if (!videoId) return [];
 
-    logger.info(`YouTube: extracting video ${videoId}`);
+    logger.info(`YouTube: extracting video ${videoId} from ${url}`);
 
-    // Try Innertube API first (most reliable)
+    // Strategy: try HTML scrape FIRST (uses user's cookies, most reliable in-browser),
+    // then fall back to Innertube API (which often returns UNPLAYABLE without proper
+    // visitor data / signature timestamp).
     let playerResponse = null;
+
+    // 1) HTML scrape (primary)
     try {
-      playerResponse = await fetchViaInnertube(videoId, tab.url);
-      logger.info('YouTube: Innertube API succeeded');
+      playerResponse = await fetchViaHtmlScrape(url);
+      if (playerResponse?.streamingData?.formats?.length || playerResponse?.streamingData?.adaptiveFormats?.length) {
+        logger.info('YouTube: HTML scrape succeeded — got streaming data');
+      } else {
+        logger.warn('YouTube: HTML scrape returned no streaming data, trying Innertube');
+        playerResponse = null;
+      }
     } catch (e) {
-      logger.warn('YouTube: Innertube API failed, falling back to HTML scrape', e?.message);
+      logger.warn('YouTube: HTML scrape failed:', e?.message);
     }
 
-    // Fallback: HTML scrape
+    // 2) Innertube API (fallback)
     if (!playerResponse) {
       try {
-        playerResponse = await fetchViaHtmlScrape(url);
-        logger.info('YouTube: HTML scrape succeeded');
+        playerResponse = await fetchViaInnertube(videoId, tab.url);
+        logger.info('YouTube: Innertube API succeeded');
       } catch (e) {
-        logger.error('YouTube: both extraction methods failed', e);
-        return [{
-          id: `yt-${videoId}`,
-          type: 'video',
-          title: 'YouTube video',
-          variants: [],
-          error: `Could not extract video data: ${e?.message || 'unknown error'}. Try refreshing the page or check your network.`,
-          meta: { site: 'youtube', videoId },
-        }];
+        logger.warn('YouTube: Innertube API failed:', e?.message);
       }
+    }
+
+    if (!playerResponse) {
+      return [{
+        id: `yt-${videoId}`,
+        type: 'video',
+        title: 'YouTube video',
+        variants: [],
+        error: `Could not extract video data. This might be due to YouTube's bot detection, a consent page, or a network issue. Try: 1) Refresh the YouTube page, 2) Make sure you're logged in to YouTube, 3) Open the video in a regular (not incognito) window.`,
+        meta: { site: 'youtube', videoId },
+      }];
     }
 
     return buildResult(playerResponse, videoId, tab.id);
