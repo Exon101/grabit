@@ -349,16 +349,22 @@ async function startDownload(payload) {
   };
   await recordDownload(entry);
 
-  // Tier 1: chrome.downloads.download — works for URLs without referer requirement
-  if (!needsReferer) {
-    const ok = await tryChromeDownload(url, finalFilename, settings, entry);
-    if (ok) return { ok: true, tier: 1, id: entry.id };
-  }
+  // Tier 1: chrome.downloads.download — ALWAYS try first.
+  // DNR rules inject Referer/Origin at the network layer, so this works
+  // even for URLs that "need referer". chrome.downloads is NOT subject
+  // to CORS (unlike fetch()), so it's the most reliable path.
+  logger.info('Trying Tier 1: chrome.downloads.download');
+  const tier1Ok = await tryChromeDownload(url, finalFilename, settings, entry);
+  if (tier1Ok) return { ok: true, tier: 1, id: entry.id };
 
-  // Tier 2: fetch() in SW + Blob URL download — bypasses referer via DNR
-  logger.info('Tier 1 failed or needs referer; trying Tier 2 (fetch+blob)');
-  const ok = await tryFetchBlobDownload(url, finalFilename, settings, entry);
-  if (ok) return { ok: true, tier: 2, id: entry.id };
+  // Tier 2: fetch() in SW + Blob URL download — fallback for URLs where
+  // chrome.downloads fails. NOTE: this will fail with CORS for most CDNs
+  // (googlevideo, video.twimg.com, etc.) because they don't send
+  // Access-Control-Allow-Origin. Still worth trying for CDNs that do
+  // support CORS.
+  logger.info('Tier 1 failed; trying Tier 2 (fetch+blob)');
+  const tier2Ok = await tryFetchBlobDownload(url, finalFilename, settings, entry);
+  if (tier2Ok) return { ok: true, tier: 2, id: entry.id };
 
   // Tier 3: open in new tab as last resort
   logger.warn('Tier 2 failed; falling back to Tier 3 (open in tab)');
@@ -373,6 +379,7 @@ async function startDownload(payload) {
 
 async function tryChromeDownload(url, filename, settings, entry) {
   try {
+    logger.info(`Tier 1: starting chrome.downloads.download for ${filename}`);
     const downloadId = await new Promise((resolve, reject) => {
       chrome.downloads.download(
         {
@@ -382,8 +389,14 @@ async function tryChromeDownload(url, filename, settings, entry) {
           conflictAction: 'uniquify',
         },
         (id) => {
-          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-          else resolve(id);
+          if (chrome.runtime.lastError) {
+            logger.warn('Tier 1: chrome.downloads.download error:', chrome.runtime.lastError.message);
+            reject(new Error(chrome.runtime.lastError.message));
+          }
+          else {
+            logger.info(`Tier 1: download started, id=${id}`);
+            resolve(id);
+          }
         },
       );
     });
@@ -397,22 +410,26 @@ async function tryChromeDownload(url, filename, settings, entry) {
       if (delta.state?.current === 'complete') {
         chrome.downloads.onChanged.removeListener(listener);
         updateDownload(entry.id, { status: 'complete', completedAt: Date.now() });
+        logger.info(`Tier 1: download ${downloadId} complete`);
         if (settings.notifyOnComplete) {
           notify('GrabIt download complete', filename);
         }
       }
       if (delta.state?.current === 'interrupted') {
         chrome.downloads.onChanged.removeListener(listener);
-        updateDownload(entry.id, { status: 'error', error: delta.error?.current || 'interrupted', completedAt: Date.now() });
+        const errMsg = delta.error?.current || 'interrupted';
+        logger.warn(`Tier 1: download ${downloadId} interrupted:`, errMsg);
+        updateDownload(entry.id, { status: 'error', error: errMsg, completedAt: Date.now() });
         if (settings.notifyOnError) {
-          notify('GrabIt download failed', `${filename}: ${delta.error?.current || 'interrupted'}`);
+          notify('GrabIt download failed', `${filename}: ${errMsg}`);
         }
       }
     };
     chrome.downloads.onChanged.addListener(listener);
     return true;
   } catch (e) {
-    logger.warn('chrome.downloads.download failed', e?.message);
+    logger.warn('Tier 1 failed:', e?.message);
+    Sentry.captureException(e, { tier: 1, url: url.slice(0, 80) });
     return false;
   }
 }
