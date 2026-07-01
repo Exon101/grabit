@@ -20,6 +20,7 @@ import { logger, getSettings, saveSettings, sanitizeFilename, formatBytes, stora
 import { runExtractorForTab, listExtractors } from '../extractors/registry.js';
 import { applyDynamicBypassRules, buildStaticDnrRules, fetchWithCredentials } from '../lib/restriction-bypass.js';
 import { checkForUpdates, downloadUpdate, getUpdateStatus, scheduleUpdateChecks, clearUpdateSchedule, wireAlarmHandler, wireNotificationHandler, UPDATER_DEFAULTS } from '../lib/updater.js';
+import { Sentry } from '../lib/sentry.js';
 
 /* ------------------------------------------------------------------ *
  * Lifecycle
@@ -27,12 +28,23 @@ import { checkForUpdates, downloadUpdate, getUpdateStatus, scheduleUpdateChecks,
 
 chrome.runtime.onInstalled.addListener(async (details) => {
   logger.info('GrabIt installed/updated', details);
+
+  // Initialize Sentry error capture
+  const manifest = chrome.runtime.getManifest();
+  const settings = await getSettings();
+  Sentry.init({
+    dsn: settings.sentryDsn || null,  // null = local-only error capture
+    environment: 'production',
+    release: `grabit@${manifest.version}`,
+    enabled: settings.errorReporting !== false,
+  });
+  Sentry.addBreadcrumb({ category: 'lifecycle', message: `onInstalled: ${details.reason}` });
+
   await initLogLevel();
   await applyStaticDnrRules();
   await createContextMenus();
   await ensureDefaultSettings();
   // Schedule update checks (default every 6h)
-  const settings = await getSettings();
   if (settings.autoCheckUpdates !== false) {
     await scheduleUpdateChecks(settings.updateCheckIntervalMin || UPDATER_DEFAULTS.updateCheckIntervalMin);
   }
@@ -43,13 +55,22 @@ chrome.runtime.onInstalled.addListener(async (details) => {
 });
 
 chrome.runtime.onStartup.addListener(async () => {
+  // Initialize Sentry on browser startup too
+  const manifest = chrome.runtime.getManifest();
+  const startupSettings = await getSettings();
+  Sentry.init({
+    dsn: startupSettings.sentryDsn || null,
+    environment: 'production',
+    release: `grabit@${manifest.version}`,
+    enabled: startupSettings.errorReporting !== false,
+  });
+
   await initLogLevel();
   await applyStaticDnrRules();
   await createContextMenus();
   // Re-schedule alarms (alarms don't persist across browser restarts)
-  const settings = await getSettings();
-  if (settings.autoCheckUpdates !== false) {
-    await scheduleUpdateChecks(settings.updateCheckIntervalMin || UPDATER_DEFAULTS.updateCheckIntervalMin);
+  if (startupSettings.autoCheckUpdates !== false) {
+    await scheduleUpdateChecks(startupSettings.updateCheckIntervalMin || UPDATER_DEFAULTS.updateCheckIntervalMin);
   }
 });
 
@@ -118,6 +139,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       sendResponse({ ok: true, data: result });
     } catch (e) {
       logger.error('Message handler error', msg?.type, e);
+      Sentry.captureException(e, { messageType: msg?.type, senderTabId: sender?.tab?.id });
       sendResponse({ ok: false, error: e?.message || String(e) });
     }
   })();
@@ -195,6 +217,13 @@ async function handleMessage(msg, sender) {
 
     case 'clearScanCache':
       scanCache.delete(msg.tabId);
+      return { ok: true };
+
+    case 'getErrors':
+      return await Sentry.getRecentErrors(msg.limit || 50);
+
+    case 'clearErrors':
+      await Sentry.clearErrors();
       return { ok: true };
 
     default:

@@ -261,6 +261,29 @@
               <button class="btn-secondary" id="reload-bg-btn">Reload service worker</button>
             </div>
           </div>
+
+          <div class="card">
+            <h2>Error reporting</h2>
+            <p class="card-desc">GrabIt captures errors locally (in chrome.storage) so the Debug panel can show them. Optionally, errors can be sent to Sentry for remote collection.</p>
+            <label class="toggle-row">
+              <span>
+                <span class="toggle-label">Enable error reporting</span>
+                <span class="toggle-hint">Capture unhandled errors and promise rejections. Local capture is always on; this controls whether they're also sent to Sentry.</span>
+              </span>
+              <input type="checkbox" id="error-reporting" class="toggle" />
+            </label>
+            <div class="field-row">
+              <div class="field-label">
+                <label>Sentry DSN</label>
+                <span class="hint">Leave empty for local-only capture. Set to your Sentry project DSN to send errors remotely.</span>
+              </div>
+              <input type="text" id="sentry-dsn" class="input" placeholder="https://abc123@sentry.io/456" />
+            </div>
+            <div class="actions-row">
+              <button class="btn-secondary" id="view-errors-btn">View captured errors</button>
+              <button class="btn-secondary" id="clear-errors-btn">Clear error log</button>
+            </div>
+          </div>
         </section>
 
         <!-- Updates -->

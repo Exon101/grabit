@@ -40,9 +40,6 @@
     "alarms",
     "downloads"
   ],
-  "optional_permissions": [
-    "host_permissions"
-  ],
   "host_permissions": [],
   "optional_host_permissions": [
     "https://*.youtube.com/*",

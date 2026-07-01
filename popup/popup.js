@@ -26,12 +26,19 @@
    * ---------------------------------------------------------------- */
   function send(type, payload) {
     return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage({ type, ...payload }, (resp) => {
-        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-        if (!resp) return reject(new Error('No response'));
-        if (!resp.ok) return reject(new Error(resp.error || 'Unknown error'));
-        resolve(resp.data);
-      });
+      if (!chrome.runtime?.id) {
+        return reject(new Error('Extension reloaded — close and reopen this popup'));
+      }
+      try {
+        chrome.runtime.sendMessage({ type, ...payload }, (resp) => {
+          if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+          if (!resp) return reject(new Error('No response'));
+          if (!resp.ok) return reject(new Error(resp.error || 'Unknown error'));
+          resolve(resp.data);
+        });
+      } catch (e) {
+        reject(new Error('Extension reloaded — close and reopen this popup'));
+      }
     });
   }
 
@@ -540,6 +547,19 @@
   /* ---------------------------------------------------------------- *
    * Debug diagnostics
    * ---------------------------------------------------------------- */
+  async function getRecentErrorsForDebug() {
+    try {
+      const errors = await send('getErrors', { limit: 10 });
+      if (!errors || !errors.length) return ['(no errors recorded)'];
+      return errors.map(e => {
+        const time = e.timestamp?.replace('T', ' ').slice(0, 19) || '?';
+        const msg = (e.message || '').slice(0, 120);
+        return `[${time}] ${e.level || 'error'}: ${msg}`;
+      });
+    } catch (e) {
+      return [`(failed to load errors: ${e.message})`];
+    }
+  }
   async function showDebugInfo() {
     const modal = $('#debug-modal');
     const body = $('#debug-body');
@@ -621,6 +641,9 @@
         `=== Update ===`,
         updateInfo,
         ``,
+        `=== Recent Errors (last 10) ===`,
+        ...(await getRecentErrorsForDebug()),
+        ``,
         `=== Troubleshooting ===`,
         `1. If permission=false: click "Enable for this site"`,
         `2. If status=needs_permission: grant permission, then click "Re-scan"`,
@@ -640,6 +663,16 @@
     // Wire buttons
     $('#debug-close').onclick = () => { modal.hidden = true; };
     $('#debug-backdrop').onclick = () => { modal.hidden = true; };
+    $('#debug-clear-errors').onclick = async () => {
+      try {
+        await send('clearErrors');
+        showToast('Error log cleared', 'success');
+        // Re-render debug info
+        showDebugInfo();
+      } catch (e) {
+        showToast('Clear failed: ' + e.message, 'error');
+      }
+    };
     $('#debug-copy').onclick = () => {
       navigator.clipboard.writeText(body.textContent).then(() => {
         showToast('Copied to clipboard', 'success');

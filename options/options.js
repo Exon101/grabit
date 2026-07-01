@@ -15,13 +15,41 @@
   /* ---------------------------------------------------------------- *
    * IPC
    * ---------------------------------------------------------------- */
+  let contextValid = true;
+
+  // Detect when the extension context is invalidated (e.g. after reload)
+  if (chrome.runtime?.onConnect) {
+    chrome.runtime.onConnect.addListener(() => {});
+  }
+  // Check periodically if context is still valid
+  setInterval(() => {
+    if (!chrome.runtime?.id) {
+      contextValid = false;
+      // Show a banner telling the user to reload
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#f59e0b;color:#fff;padding:12px 20px;font-size:14px;font-family:sans-serif;z-index:10000;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+      banner.innerHTML = '⚠️ GrabIt was reloaded. <a href="#" onclick="location.reload()" style="color:#fff;text-decoration:underline;font-weight:700">Refresh this page</a> to continue.';
+      if (!document.querySelector('[data-grabit-reload-banner]')) {
+        banner.setAttribute('data-grabit-reload-banner', 'true');
+        document.body.appendChild(banner);
+      }
+    }
+  }, 2000);
+
   function send(type, payload = {}) {
     return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage({ type, ...payload }, (resp) => {
-        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
-        if (!resp || !resp.ok) return reject(new Error(resp?.error || 'No response'));
-        resolve(resp.data);
-      });
+      if (!chrome.runtime?.id) {
+        return reject(new Error('Extension context invalidated — please reload the page'));
+      }
+      try {
+        chrome.runtime.sendMessage({ type, ...payload }, (resp) => {
+          if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+          if (!resp || !resp.ok) return reject(new Error(resp?.error || 'No response'));
+          resolve(resp.data);
+        });
+      } catch (e) {
+        reject(new Error('Extension context invalidated — please reload the page'));
+      }
     });
   }
 
@@ -35,13 +63,24 @@
   async function persist(patch) {
     Object.assign(saveQueue, patch);
     if (saveTimer) clearTimeout(saveTimer);
-    $('#sync-indicator').hidden = false;
+    // Don't show sync indicator if context is already invalid
+    if (chrome.runtime?.id) {
+      $('#sync-indicator').hidden = false;
+    }
     saveTimer = setTimeout(async () => {
       try {
+        if (!chrome.runtime?.id) {
+          // Context invalidated — show reload banner instead of error toast
+          return;
+        }
         settings = await send('saveSettings', { patch: saveQueue });
         Object.keys(saveQueue).forEach(k => delete saveQueue[k]);
       } catch (e) {
-        showToast(e.message, 'error');
+        if (e.message.includes('invalidated')) {
+          // Silent — the reload banner is already showing
+        } else {
+          showToast(e.message, 'error');
+        }
       } finally {
         setTimeout(() => { $('#sync-indicator').hidden = true; }, 500);
       }
@@ -282,6 +321,39 @@
     $('#reload-bg-btn').addEventListener('click', () => {
       chrome.runtime.reload();
     });
+
+    // Error reporting
+    $('#error-reporting').addEventListener('change', (e) => {
+      persist({ errorReporting: e.target.checked });
+    });
+    $('#sentry-dsn').addEventListener('input', (e) => {
+      persist({ sentryDsn: e.target.value.trim() });
+    });
+    $('#view-errors-btn').addEventListener('click', async () => {
+      try {
+        const errors = await send('getErrors', { limit: 20 });
+        if (!errors || !errors.length) {
+          showToast('No errors captured', 'success');
+          return;
+        }
+        const text = errors.map(e =>
+          `[${e.timestamp}] ${e.level}: ${e.message}\n${e.stack ? e.stack.split('\n').slice(0, 3).join('\n') : ''}`
+        ).join('\n\n---\n\n');
+        // Open in a new window
+        const w = window.open('', '_blank', 'width=600,height=600');
+        w.document.write(`<pre style="font-family:monospace;font-size:12px;padding:20px;white-space:pre-wrap;word-break:break-all;">${text.replace(/</g, '&lt;')}</pre>`);
+      } catch (e) {
+        showToast('Failed: ' + e.message, 'error');
+      }
+    });
+    $('#clear-errors-btn').addEventListener('click', async () => {
+      try {
+        await send('clearErrors');
+        showToast('Error log cleared', 'success');
+      } catch (e) {
+        showToast('Clear failed: ' + e.message, 'error');
+      }
+    });
   }
 
   /* ---------------------------------------------------------------- *
@@ -487,6 +559,10 @@
     $('#max-parallel').value = settings.maxParallelDownloads || 3;
     $('#parallel-value').textContent = String(settings.maxParallelDownloads || 3);
     $('#debug-logging').checked = !!settings.debugLogging;
+
+    // Error reporting
+    $('#error-reporting').checked = settings.errorReporting !== false;
+    $('#sentry-dsn').value = settings.sentryDsn || '';
   }
 
   /* ---------------------------------------------------------------- *
