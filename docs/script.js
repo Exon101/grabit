@@ -122,10 +122,50 @@
     }, { passive: true });
   }
 
+  function wireMobileMenu() {
+    const toggle = document.getElementById('nav-toggle');
+    const menu = document.getElementById('nav-mobile');
+    if (!toggle || !menu) return;
+
+    toggle.addEventListener('click', () => {
+      const isOpen = !menu.hidden;
+      if (isOpen) {
+        menu.hidden = true;
+        toggle.classList.remove('active');
+        toggle.setAttribute('aria-expanded', 'false');
+      } else {
+        menu.hidden = false;
+        toggle.classList.add('active');
+        toggle.setAttribute('aria-expanded', 'true');
+      }
+    });
+
+    // Close menu when a link is clicked
+    menu.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', () => {
+        menu.hidden = true;
+        toggle.classList.remove('active');
+        toggle.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (menu.hidden) return;
+      const nav = document.querySelector('.nav');
+      if (nav && !nav.contains(e.target)) {
+        menu.hidden = true;
+        toggle.classList.remove('active');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     renderSites();
     wireSmoothScroll();
     wireNavScroll();
+    wireMobileMenu();
     fetchLatestRelease();
   });
 })();
